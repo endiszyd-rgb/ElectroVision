@@ -1,177 +1,242 @@
 # ElectroVision
 
-Desktopowa aplikacja do projektowania elektroniki PCB z lokalnym AI, wizualizacją 3D, generatorem kodu i eksportem STL/STEP.
+Desktopowa aplikacja do projektowania elektroniki PCB z lokalnym AI (Ollama), interaktywnym edytorem płytki, wizualizacją 3D, generatorem kodu MCU i eksportem STL/STEP obudów.
 
-## Wymagania
+---
 
-- Python 3.10+
-- [Ollama](https://ollama.ai) (dla AI) — `ollama serve` + `ollama pull llama3`
-- KiCad (opcjonalnie, do edycji PCB)
-- Fusion 360 (opcjonalnie, do edycji STEP/STL)
-- Arduino IDE (opcjonalnie, do wgrywania kodu)
-
-## Instalacja
+## Szybki start
 
 ```bash
+# Jednoklikowe uruchomienie (Windows) — instaluje venv, deps, uruchamia Ollama + aplikację
+start.bat
+
+# Lub ręcznie:
 pip install -r requirements.txt
 python main.py
 ```
 
-## Moduły i możliwości konfiguracji
+Wymaga:
+- **Python 3.10+** (zalecany 3.11 lub 3.12)
+- **[Ollama](https://ollama.ai)** — `ollama serve` + `ollama pull llama3`
 
-### `src/core/models/` — Modele danych
+Opcjonalnie:
+- KiCad 7/8 — import/eksport `.kicad_pcb` / `.kicad_sch`
+- PrusaSlicer / Cura — otwieranie wygenerowanych plików STL
+- Arduino IDE — wgrywanie wygenerowanego kodu
 
-| Plik | Co zmienić |
-|------|------------|
-| `component.py` | `component_type` — reguły rozpoznawania typu komponentu wg prefixu ref |
-| `pcb_board.py` | `bounding_box` — logika obliczania granic płytki |
-| `layer.py` | `kicad_layers()` — lista standardowych warstw KiCad |
+---
 
-### `src/core/parsers/kicad_parser.py` — Parser KiCad
+## Możliwości
 
-Parsuje pliki `.kicad_pcb` (format S-expression KiCad 6/7/8).
+### Edytor PCB (interaktywny)
+- Tryby: **Wybierz / Trasuj / Przelotka / Usuń / Strefa miedzi / Umieść komponent**
+- Skróty: `S` Wybierz · `R` Trasuj · `V` Przelotka · `X` Usuń · `Z` Strefa · `N` Ratsnest · `Space` Obróć · `M` Lustro · `F` Dopasuj widok · `Ctrl+Z/Y` Cofnij/Ponów
+- Widoczność warstw (checkboxy per warstwa + „Wszystkie" / „Tylko Cu")
+- Ratsnest (brakujące połączenia) z przełącznikiem
+- Strefy miedzi (copper pour) z obsługą sieci
+- Znajdź komponent: **Ctrl+F** → pole wyszukiwania + lista
+- **Dwuklik na komponent → dialog właściwości** (ref, wartość, footprint, XY, rotacja, warstwa)
+- **Nakładka DRC** — po walidacji błędy wyświetlają się jako czerwone X bezpośrednio na płytce
+- Biblioteka komponentów (rezystory, kondensatory, LED, złącza, MCU, tranzystory, kryształy)
+- Wyrównanie i rozmieszenie komponentów
+- Eksport do `.kicad_pcb`
 
-**Co można zmienić:**
-- `MIN_TRACE_WIDTH_MM` — minimalna szerokość ścieżki (domyślnie 0.1mm)
-- `_parse_footprints()` — rozszerzenie o dodatkowe właściwości footprintu
-- Obsługa KiCad 5: format S-expression starszy, wymaga drobnych zmian
+### AI — Generator projektu PCB
+- Opisz słowami: *„Sterownik silnika DC 12V, ESP32, zabezpieczenie przetężeniowe, 4 enkodery"*
+- AI (Ollama) generuje projekt z komponentami, sieciami i układem — gotowy do edycji
 
-### `src/generators/bom_generator.py` — Eksport BOM
+### AI — Designer obudowy STL/STEP
+- Opisz obudowę: *„IP54, montaż na szynę DIN, otwory USB-C i DC jack"*
+- AI generuje kod Python (trimesh/CadQuery), wykonuje go w sandboxie, pokazuje podgląd STL
+- 6 wbudowanych szablonów: standardowa drukowana, IP65 zewnętrzna, szyna DIN, rack 1U i inne
 
-**Co można zmienić:**
-- `group_components()` — logika grupowania (wg wartości + footprintu)
-- `to_excel()` — style arkusza (kolory, czcionki, nagłówki)
-- Dodanie nowych formatów (np. HTML, JSON, Mouser/Digi-Key BOM)
+### Przeglądarka PCB 2D / 3D
+- Render 2D — QPainter, wszystkie warstwy KiCad z kolorami, zoom/pan
+- Render 3D — Three.js w WebEngine **lub** soft-renderer QPainter (bez WebEngine)
 
-### `src/generators/code_generator.py` — Generator kodu Arduino/MicroPython/C++
+### Schemat
+- Parser `.kicad_sch` (KiCad 6/7/8)
+- Podgląd symboli, sieci, oznaczeń
 
-**Co można zmienić:**
-- `_COMPONENT_KNOWLEDGE` — biblioteki i kod init/loop dla każdego typu komponentu
-- `_VALUE_OVERRIDES` — mapowanie nazwy wartości → konkretne biblioteki (np. "bme280" → Adafruit_BME280)
-- `_ARDUINO_TEMPLATE`, `_MICROPYTHON_TEMPLATE`, `_CPP_TEMPLATE` — szablony Jinja2 kodu
-- Dodanie nowych platform (PlatformIO, Zephyr RTOS, Arduino ESP8266)
+### BOM — Lista komponentów
+- Grupowanie (wartość + footprint), eksport CSV / Excel / PDF
+- Filtrowanie po typie
 
-### `src/generators/stl_generator.py` — Generator STL + STEP
+### Generator kodu MCU
+- Arduino (`.ino`), MicroPython (`.py`), C++/ESP-IDF (`.cpp`)
+- Automatyczna detekcja komponentów (ESP32, BME280, SSD1306, NeoPixel, …)
+- Szablony Jinja2 z importami, inicjalizacją i przykładowym pętlą
 
-**Co można zmienić:**
-- `pcb_thickness` — grubość FR4 (domyślnie 1.6mm)
-- `enclosure_margin` — margines obudowy od krawędzi PCB (domyślnie 3mm)
-- `wall_thickness` — grubość ścianek (domyślnie 2.0mm)
-- `corner_radius` — zaokrąglenie narożników (domyślnie 2.0mm)
-- `_make_enclosure()` — geometria głównej obudowy (CadQuery)
-- `_make_lid()` — geometria wieka obudowy
-- `_export_stl_trimesh()` — fallback gdy CadQuery niedostępne
+### STL / STEP — Generator obudów
+- Generacja obudowy (dno + wieko) dopasowanej do PCB
+- Automatyczne otwory na złącza (USB-C, DC Jack, JST, przyciski)
+- Wysokość obudowy z bazy danych komponentów (50+ typów)
+- Eksport `.stl` (trimesh) + `.step` (CadQuery gdy dostępny)
+- Przeglądarka 3D wbudowana (WebEngine lub soft-renderer)
 
-### `src/validators/pcb_drc.py` — Walidator PCB (DRC)
+### Walidacja DRC + STL
+- DRC: szerokość ścieżek, prześwity, przelotki, zduplikowane refy, otwór, strefy
+- STL: grubość ścianek, kąty nawisu, manifold geometry
+- Wyjaśnienia AI: *„Wyjaśnij błąd"* / *„Plan naprawy krok po kroku"*
+- **Błędy DRC widoczne bezpośrednio na edytorze PCB** (czerwone X z opisem)
 
-**Co można zmienić:**
-- `MIN_TRACE_WIDTH_MM = 0.1` — minimalna szerokość ścieżki
-- `MIN_CLEARANCE_MM = 0.1` — minimalny prześwit między ścieżkami
-- `MIN_EDGE_CLEARANCE = 0.3` — prześwit od krawędzi płytki
-- `MIN_VIA_DRILL_MM = 0.2` — minimalny otwór przelotki
-- `MIN_VIA_ANNULAR_MM = 0.1` — minimalny pierścień anularny
-- Dodanie nowych reguł w metodach `_check_*`
+### Trasowanie AI
+- Sugestie rozmieszczenia + routingu generowane przez Ollama
+- Zintegrowany DRC po trasowaniu
 
-### `src/validators/stl_validator.py` — Walidator STL/STEP
+### Koszty
+- Kosztorys komponentów z bazą LCSC
+- Eksport PDF raportu kosztów
 
-**Co można zmienić:**
-- `MIN_WALL_THICKNESS_MM = 0.8` — minimalna grubość ścianki
-- `MAX_OVERHANG_ANGLE = 60.0` — maksymalny kąt nawisu
-- `MAX_FILE_SIZE_MB = 500` — ostrzeżenie o dużym pliku
+### Net Inspector
+- Wizualizacja połączeń sieciowych
+- Klik na sieć → highlight ścieżek i komponentów w edytorze
 
-### `src/ai/prompts/` — Systemowe prompty dla AI (Ollama)
+### AI Asystent (RAG)
+- Lokalny LLM przez Ollama (Llama 3, Mistral, CodeLlama, Qwen2)
+- Baza wiedzy PCB/STL aktualizowana z GitHub i stron spec
+- Nauka z URL / PDF / wklejonego tekstu
+- Kontekst projektu (rozmiary płytki, komponenty) przekazywany automatycznie
 
-| Plik | Zastosowanie |
-|------|-------------|
-| `pcb_system.txt` | Kontekst AI dla projektowania PCB |
-| `stl_system.txt` | Kontekst AI dla projektowania obudów |
-| `code_system.txt` | Kontekst AI dla generowania kodu |
+### Chmura / Git
+- Push/pull GitHub (token PAT)
+- Sync z Google Drive (OAuth2)
+- Lokalny serwer projektów (Flask REST API)
 
-**Jak dostosować:** Edytuj pliki `.txt` aby zmienić wiedzę i styl odpowiedzi AI. Możesz dodać własne reguły, preferowane komponenty, specyficzne standardy firmy.
+### Ustawienia (Ctrl+,)
+- Model Ollama, host, timeout
+- Progi DRC (szerokość ścieżek, prześwity, przelotki)
+- Domyślne parametry edytora (szerokość ścieżki, siatka, via)
+- Motyw, język, autosave
 
-### `src/ai/knowledge/fetcher.py` — Baza wiedzy
+---
 
-**Co można zmienić:**
-- `_BUILTIN_COMPONENT_DB` — wbudowana baza komponentów (MCU, sensory, wyświetlacze)
-- `_SOURCES` — źródła internetowe do pobrania (GitHub repos, listy bibliotek)
-- `fetch_all()` — logika aktualizacji bazy wiedzy
-
-### `src/cloud/github/client.py` — Integracja GitHub
-
-**Konfiguracja:**
-- Token GitHub Personal Access Token (Settings → Developer Settings → Personal Access Tokens)
-- Zakres uprawnień: `repo` (prywatne repozytoria)
-
-### `src/cloud/gdrive/client.py` — Integracja Google Drive
-
-**Konfiguracja:**
-1. Google Cloud Console → New Project → Enable Drive API
-2. Create OAuth2 credentials (Desktop app) → pobierz `credentials.json`
-3. Umieść w `%USERPROFILE%\.electrovision\gdrive_credentials.json`
-
-### `server/app.py` — Serwer projektów (Flask)
-
-**Konfiguracja:**
-- `EV_SERVER_HOST` — env var, adres nasłuchiwania (domyślnie `0.0.0.0`)
-- `EV_SERVER_PORT` — env var, port (domyślnie `8765`)
-- `STORAGE_DIR` — folder przechowywania projektów
-
-**Uruchomienie:**
-```bash
-python -m server.app
-# lub przez GUI: panel Chmura → Uruchom serwer lokalny
-```
-
-## Struktura folderów
+## Struktura projektu
 
 ```
 ElectroVision/
-├── main.py                    # Punkt wejścia
-├── requirements.txt           # Zależności Python
-├── pyproject.toml             # Metadane projektu
-├── server/                    # Serwer projektów (Flask)
-│   ├── app.py                 # REST API
-│   └── storage/               # Dane przechowywane lokalnie
-├── assets/
-│   └── templates/             # Szablony Jinja2 kodu (arduino/micropython/c_cpp)
+├── main.py                     # Punkt wejścia
+├── start.bat                   # Jednoklikowe uruchomienie (Windows)
+├── requirements.txt
 ├── src/
-│   ├── app.py                 # QApplication + dark theme
+│   ├── app.py                  # QApplication + dark theme
 │   ├── ui/
-│   │   ├── main_window.py     # Główne okno, menu, zakładki
-│   │   ├── panels/            # Panele zakładek
-│   │   └── widgets/           # Widgety (2D PCB view, 3D WebEngine view, tabela BOM)
+│   │   ├── main_window.py      # Główne okno, menu, zakładki, Ollama indicator
+│   │   ├── dialogs/
+│   │   │   ├── ai_project_dialog.py      # AI PCB generator
+│   │   │   ├── ai_stl_dialog.py          # AI STL designer
+│   │   │   ├── component_props_dialog.py # Edycja właściwości komponentu
+│   │   │   ├── settings_dialog.py        # Ustawienia aplikacji
+│   │   │   ├── template_dialog.py        # Wybór szablonu projektu
+│   │   │   └── ollama_error_dialog.py    # Diagnostyka Ollama
+│   │   ├── panels/
+│   │   │   ├── pcb_editor_panel.py       # Edytor PCB + panel warstw/find
+│   │   │   ├── pcb_viewer_panel.py       # Przeglądarka 2D/3D
+│   │   │   ├── bom_panel.py
+│   │   │   ├── code_gen_panel.py
+│   │   │   ├── stl_gen_panel.py          # Generator STL + AI Designer
+│   │   │   ├── schematic_panel.py
+│   │   │   ├── routing_panel.py
+│   │   │   ├── cost_panel.py
+│   │   │   ├── net_inspector_panel.py
+│   │   │   ├── validation_panel.py
+│   │   │   ├── components_panel.py
+│   │   │   ├── ai_panel.py
+│   │   │   ├── cloud_panel.py
+│   │   │   └── url_learning_panel.py
+│   │   └── widgets/
+│   │       ├── pcb_editor.py             # Canvas edytora PCB (QPainter)
+│   │       ├── pcb_2d_view.py
+│   │       ├── pcb_3d_view.py            # Three.js lub soft-renderer
+│   │       ├── stl_3d_view.py            # STL przeglądarka
+│   │       └── component_table.py
 │   ├── core/
-│   │   ├── models/            # Modele danych (PCBBoard, Component, Layer, Net)
-│   │   └── parsers/           # Parser KiCad
-│   ├── generators/            # Generatory (BOM, kod, STL+STEP)
-│   ├── validators/            # Walidatory (PCB DRC, STL geometry)
+│   │   ├── models/             # PCBBoard, Component, Layer, Net, CopperZone
+│   │   ├── parsers/            # KiCad PCB + schematic parser
+│   │   ├── project.py
+│   │   └── project_io.py       # Zapis/odczyt .evproj (JSON)
+│   ├── generators/
+│   │   ├── bom_generator.py
+│   │   ├── code_generator.py
+│   │   ├── stl_generator.py    # Obudowy STL/STEP z bazy komponentów
+│   │   ├── gerber_generator.py # Gerber + Drill
+│   │   ├── kicad_generator.py  # Eksport .kicad_pcb
+│   │   └── pdf_generator.py    # Raporty PDF
+│   ├── validators/
+│   │   ├── pcb_drc.py          # DRC: ścieżki, prześwity, przelotki
+│   │   └── stl_validator.py
 │   ├── ai/
-│   │   ├── prompts/           # Systemowe prompty dla Ollama
-│   │   └── knowledge/         # Baza wiedzy PCB/STL + data fetcher
+│   │   ├── bridge.py           # Fasada do Ollama
+│   │   ├── ollama_utils.py     # is_ollama_running(), list_models()
+│   │   ├── prompts/            # Systemowe prompty (.txt)
+│   │   ├── knowledge/          # Baza wiedzy PCB/STL
+│   │   ├── rag/                # Retrieval-Augmented Generation
+│   │   └── agents/             # Agenci AI (PCB, STL, Kod)
 │   └── cloud/
-│       ├── github/            # GitHub API client
-│       ├── gdrive/            # Google Drive client
-│       └── server/            # Client dla ElectroVision Server
-└── tests/                     # Testy pytest
+│       ├── github/
+│       ├── gdrive/
+│       └── server/             # REST client dla lokalnego serwera
+└── tests/
 ```
 
-## Uruchomienie testów
+---
+
+## Konfiguracja AI (Ollama)
+
+```bash
+# Zainstaluj Ollama
+# Windows: https://ollama.ai → Download
+ollama serve
+ollama pull llama3        # domyślny model
+# opcjonalnie:
+ollama pull codellama     # lepszy do generowania kodu
+ollama pull qwen2         # alternatywa
+```
+
+W aplikacji: **Ctrl+,** → zakładka AI/Ollama → zmień model/host.
+
+Status Ollama widoczny w pasku statusu (🟢 / 🔴).
+
+---
+
+## Format projektu (.evproj)
+
+Plik JSON zawierający:
+- Metadane projektu (nazwa, data, wersja)
+- `board` — pełna struktura PCBBoard (komponenty, ścieżki, przelotki, warstwy, sieci, strefy miedzi)
+
+Eksport dodatkowy: Gerber (`Ctrl+G`), PDF raport (`Ctrl+P`), `.kicad_pcb`.
+
+---
+
+## Zależności
+
+| Biblioteka | Cel |
+|-----------|-----|
+| `PySide6>=6.8` | GUI Qt6 |
+| `sexpdata` | Parser KiCad S-expression |
+| `trimesh + numpy` | STL generator + przeglądarka |
+| `Jinja2` | Szablony kodu MCU |
+| `pandas + openpyxl` | BOM Excel |
+| `ollama` | Lokalny AI client |
+| `flask` | Serwer projektów |
+| `PyGithub` | GitHub API |
+| `google-api-python-client` | Google Drive |
+| `reportlab` | Eksport PDF |
+
+> CadQuery (`cadquery>=2.4`) — opcjonalnie (Python ≤3.12), dla eksportu STEP.  
+> PySide6-WebEngine — opcjonalnie, dla renderera 3D Three.js (Python ≤3.12).
+
+---
+
+## Testy
 
 ```bash
 pytest tests/ -v
 ```
 
-## Zależności zewnętrzne
+---
 
-| Biblioteka | Cel | Instalacja |
-|-----------|-----|-----------|
-| PySide6 | GUI Qt6 | pip install PySide6 |
-| sexpdata | Parser S-expression (KiCad) | pip install sexpdata |
-| cadquery | Generator 3D STEP/STL | pip install cadquery |
-| trimesh | Fallback STL + walidacja | pip install trimesh |
-| Jinja2 | Szablony kodu | pip install Jinja2 |
-| pandas + openpyxl | BOM Excel | pip install pandas openpyxl |
-| ollama | Lokalny AI client | pip install ollama |
-| Flask | Serwer projektów | pip install flask |
-| PyGithub | GitHub integration | pip install PyGithub |
-| google-api-python-client | Google Drive | pip install google-api-python-client google-auth-oauthlib |
+## Licencja
+
+MIT
