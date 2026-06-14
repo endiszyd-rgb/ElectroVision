@@ -28,6 +28,7 @@ from src.core.models.component import Component, Pad
 from src.core.models.layer import Layer
 from src.core.models.net import Net
 from src.ai.bridge import AIBridge
+from src.ai.ollama_utils import is_connection_error, friendly_error, is_ollama_running
 
 
 # ── Przykładowe opisy projektów ───────────────────────────────────────────────
@@ -134,17 +135,10 @@ class _GenWorker(QObject):
                     full += text
                     self.chunk.emit(text)
             self.finished.emit(full)
-        except ImportError:
-            self.error.emit(
-                "Brak biblioteki ollama.\n"
-                "Zainstaluj: pip install ollama\n"
-                "Następnie: ollama pull llama3"
-            )
+        except ImportError as e:
+            self.error.emit(friendly_error(e))
         except Exception as e:
-            msg = str(e)
-            if "connection" in msg.lower() or "refused" in msg.lower():
-                msg = "Nie można połączyć z Ollama.\nUruchom: ollama serve"
-            self.error.emit(msg)
+            self.error.emit(friendly_error(e))
 
 
 # ── Generowanie padów na podstawie typu komponentu ────────────────────────────
@@ -580,6 +574,14 @@ class AIProjectDialog(QDialog):
             self._status_label.setText("⚠  Wpisz opis projektu.")
             return
 
+        # Preflight: check Ollama before blocking the UI thread
+        if not is_ollama_running():
+            from src.ui.dialogs.ollama_error_dialog import show_ollama_error
+            show_ollama_error("WinError 10061", self)
+            if not is_ollama_running():
+                self._status_label.setText("⚠  Ollama niedostępna. Uruchom ją i spróbuj ponownie.")
+                return
+
         self._ai_out.clear()
         self._comp_table.setRowCount(0)
         self._board_info.setText("Generowanie…")
@@ -649,8 +651,10 @@ class AIProjectDialog(QDialog):
         self._progress.setVisible(False)
         self._btn_gen.setEnabled(True)
         self._btn_stop.setEnabled(False)
-        self._status_label.setText(f"⚠  Błąd AI: {err.splitlines()[0]}")
+        self._status_label.setText(f"⚠  Błąd AI — patrz okno błędu")
         self._ai_out.append(f"\n\n⚠ BŁĄD:\n{err}")
+        from src.ui.dialogs.ollama_error_dialog import show_ollama_error
+        show_ollama_error(err, self)
 
     # ── Preview ───────────────────────────────────────────────────────────────
     def _populate_preview(self, spec: dict) -> None:

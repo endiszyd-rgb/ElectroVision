@@ -49,23 +49,9 @@ class AIStreamWorker(QObject):
                     full += text
                     self.chunk.emit(text)
             self.finished.emit(full)
-        except ImportError:
-            msg = (
-                "Brak biblioteki ollama.\n"
-                "Zainstaluj: pip install ollama\n"
-                "Następnie uruchom Ollama: https://ollama.ai"
-            )
-            self.error.emit(msg)
         except Exception as e:
-            err = str(e)
-            if "connection" in err.lower() or "refused" in err.lower():
-                err = (
-                    "Nie można połączyć z Ollama.\n"
-                    "1. Pobierz: https://ollama.ai\n"
-                    "2. Uruchom: ollama serve\n"
-                    "3. Pobierz model: ollama pull llama3"
-                )
-            self.error.emit(err)
+            from src.ai.ollama_utils import friendly_error
+            self.error.emit(friendly_error(e))
 
 
 class AIBridge(QObject):
