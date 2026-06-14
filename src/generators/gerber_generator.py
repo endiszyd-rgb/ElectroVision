@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 from datetime import datetime
 
-from src.core.models.pcb_board import PCBBoard, Trace, Via, GraphicLine
+from src.core.models.pcb_board import PCBBoard, Trace, Via, GraphicLine, CopperZone
 from src.core.models.component import Component, Pad
 
 
@@ -191,6 +191,24 @@ class GerberGenerator:
                     ap = get_ap(w)
                     lines.append(f"D{ap:02d}*")
                     lines.append(f"X{px}Y{py}D03*")
+
+            # Copper pour zones — G36/G37 region fills
+            for zone in self._board.zones:
+                if zone.layer != layer or len(zone.points) < 3:
+                    continue
+                ap = get_ap(0.01)
+                lines.append(f"D{ap:02d}*")
+                lines.append("G36*")
+                pts = zone.points
+                x0 = _mm2int(pts[0][0] - bb[0])
+                y0 = _mm2int(pts[0][1] - bb[1])
+                lines.append(f"X{x0}Y{y0}D02*")
+                for pt in pts[1:]:
+                    xi = _mm2int(pt[0] - bb[0])
+                    yi = _mm2int(pt[1] - bb[1])
+                    lines.append(f"X{xi}Y{yi}D01*")
+                lines.append(f"X{x0}Y{y0}D01*")  # close polygon
+                lines.append("G37*")
 
         # ── Silkscreen: component outlines ────────────────────────────────────
         if layer in ("F.SilkS", "B.SilkS"):

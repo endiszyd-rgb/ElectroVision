@@ -20,7 +20,7 @@ from PySide6.QtGui import (
     QWheelEvent, QMouseEvent, QKeyEvent, QPainterPath
 )
 
-from src.core.models.pcb_board import PCBBoard, Trace, Via, GraphicLine
+from src.core.models.pcb_board import PCBBoard, Trace, Via, GraphicLine, CopperZone
 from src.core.models.component import Component
 
 
@@ -56,6 +56,7 @@ class EditorMode(Enum):
     VIA       = "via"
     DELETE    = "delete"
     ADD_COMP  = "add_comp"
+    ZONE      = "zone"
 
 
 # ── Undo commands ─────────────────────────────────────────────────────────────
@@ -178,6 +179,40 @@ class _AddComp:
         return f"Dodaj {self.comp.reference}"
 
 
+class _AddZone:
+    def __init__(self, board: PCBBoard, zone: CopperZone):
+        self.board = board
+        self.zone  = zone
+
+    def redo(self) -> None:
+        if self.zone not in self.board.zones:
+            self.board.zones.append(self.zone)
+
+    def undo(self) -> None:
+        if self.zone in self.board.zones:
+            self.board.zones.remove(self.zone)
+
+    def describe(self) -> str:
+        return f"Dodaj strefę miedzi [{self.zone.layer}] {self.zone.net_name}"
+
+
+class _DelZone:
+    def __init__(self, board: PCBBoard, zone: CopperZone):
+        self.board = board
+        self.zone  = zone
+
+    def redo(self) -> None:
+        if self.zone in self.board.zones:
+            self.board.zones.remove(self.zone)
+
+    def undo(self) -> None:
+        if self.zone not in self.board.zones:
+            self.board.zones.append(self.zone)
+
+    def describe(self) -> str:
+        return f"Usuń strefę miedzi"
+
+
 class _RotateComp:
     def __init__(self, comp: Component, angle: float):
         self.comp = comp
@@ -270,6 +305,16 @@ class PCBEditor(QWidget):
         # Net highlight (set by NetInspector)
         self._highlighted_net: str = ""
 
+        # Zone drawing state
+        self._zone_pts: list[tuple[float, float]] = []
+        self._zone_net: str = "GND"
+
+        # Ratsnest toggle
+        self._show_ratsnest: bool = True
+
+        # Selected zone
+        self._sel_zone: Optional[CopperZone] = None
+
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.StrongFocus)
         self.setMinimumSize(400, 300)
@@ -292,14 +337,23 @@ class PCBEditor(QWidget):
         self._route_pts.clear()
         self._hover_del = None
         self._pending_comp = None
+        self._zone_pts.clear()
         cursors = {
             EditorMode.SELECT:   Qt.ArrowCursor,
             EditorMode.ROUTE:    Qt.CrossCursor,
             EditorMode.VIA:      Qt.CrossCursor,
             EditorMode.DELETE:   Qt.ForbiddenCursor,
             EditorMode.ADD_COMP: Qt.DragCopyCursor,
+            EditorMode.ZONE:     Qt.CrossCursor,
         }
         self.setCursor(cursors.get(mode, Qt.CrossCursor))
+        self.update()
+
+    def set_zone_net(self, net_name: str) -> None:
+        self._zone_net = net_name
+
+    def toggle_ratsnest(self, visible: bool) -> None:
+        self._show_ratsnest = visible
         self.update()
 
     def set_active_layer(self, layer: str) -> None:
@@ -458,10 +512,13 @@ class PCBEditor(QWidget):
         self._draw_grid(p)
         self._draw_board_outline(p)
         self._draw_graphic_lines(p)
+        self._draw_zones(p)
+        self._draw_ratsnest(p)
         self._draw_traces(p)
         self._draw_vias(p)
         self._draw_components(p)
         self._draw_route_preview(p)
+        self._draw_zone_preview(p)
         self._draw_pending_comp(p)
         self._draw_status_bar(p)
 
@@ -587,6 +644,119 @@ class PCBEditor(QWidget):
                 p.setFont(QFont("Consolas", max(5, int(self._scale * 0.8))))
                 p.drawText(QPointF(cx + cs + 2, cy + cs), c.value)
 
+    def _draw_zones(self, p: QPainter) -> None:
+        if not self._board or not self._board.zones:
+            return
+        from PySide6.QtGui import QPolygonF
+        for zone in self._board.zones:
+            if len(zone.points) < 3:
+                continue
+            base_c = QColor(_LAYER_COLORS.get(zone.layer, "#888"))
+            is_sel = (zone is self._sel_zone)
+            fill_c = QColor(base_c)
+            fill_c.setAlpha(55 if not is_sel else 90)
+            border_c = QColor(base_c)
+            border_c.setAlpha(200)
+
+            pts = [QPointF(*self._w2s(x, y)) for x, y in zone.points]
+            poly = QPolygonF(pts)
+            path = QPainterPath()
+            path.addPolygon(poly)
+            path.closeSubpath()
+
+            p.setBrush(QBrush(fill_c))
+            pen = QPen(border_c, 1.5 if is_sel else 1.0, Qt.DashLine if not is_sel else Qt.SolidLine)
+            p.setPen(pen)
+            p.drawPath(path)
+
+            # Net label in centroid
+            if self._scale > 3.0 and zone.net_name:
+                cx = sum(x for x, y in zone.points) / len(zone.points)
+                cy = sum(y for x, y in zone.points) / len(zone.points)
+                sx, sy = self._w2s(cx, cy)
+                p.setPen(border_c)
+                p.setFont(QFont("Consolas", max(7, int(self._scale * 0.9))))
+                p.drawText(QPointF(sx - 12, sy + 4), zone.net_name)
+
+    def _draw_zone_preview(self, p: QPainter) -> None:
+        if self._mode != EditorMode.ZONE or not self._zone_pts:
+            return
+        from PySide6.QtGui import QPolygonF
+        base_c = QColor(_LAYER_COLORS.get(self._active_layer, "#c83232"))
+        base_c.setAlpha(120)
+        p.setPen(QPen(base_c, 1.5, Qt.DashLine))
+        p.setBrush(Qt.NoBrush)
+
+        # Draw committed edges
+        for i in range(len(self._zone_pts) - 1):
+            ax, ay = self._w2s(*self._zone_pts[i])
+            bx, by = self._w2s(*self._zone_pts[i + 1])
+            p.drawLine(int(ax), int(ay), int(bx), int(by))
+
+        # Line from last point to cursor
+        lx, ly = self._w2s(*self._zone_pts[-1])
+        cx, cy = self._w2s(*self._cursor_w)
+        p.drawLine(int(lx), int(ly), int(cx), int(cy))
+
+        # Closing line back to first point (preview)
+        fx, fy = self._w2s(*self._zone_pts[0])
+        close_c = QColor(base_c); close_c.setAlpha(50)
+        p.setPen(QPen(close_c, 1.0, Qt.DotLine))
+        p.drawLine(int(cx), int(cy), int(fx), int(fy))
+
+        # Dots at vertices
+        p.setBrush(base_c)
+        p.setPen(Qt.NoPen)
+        for pt in self._zone_pts:
+            sx, sy = self._w2s(*pt)
+            p.drawEllipse(QPointF(sx, sy), 3, 3)
+
+        # Hint
+        p.setPen(QColor("#aaa"))
+        p.setFont(QFont("Consolas", 8))
+        p.drawText(8, self.height() - 22,
+                   f"Strefa: {len(self._zone_pts)} pkt — Enter/podwójny klik = zamknij  Esc = anuluj")
+
+    def _draw_ratsnest(self, p: QPainter) -> None:
+        if not self._show_ratsnest or not self._board:
+            return
+
+        # Build net → list of world positions for each pad
+        net_positions: dict[str, list[tuple[float, float]]] = {}
+        for comp in self._board.components:
+            for pad in comp.pads:
+                nn = pad.net_name
+                if not nn:
+                    continue
+                pos = (comp.x + pad.x, comp.y + pad.y)
+                net_positions.setdefault(nn, []).append(pos)
+
+        # Build set of already-connected positions from traces (within snap tolerance)
+        connected_pairs: set[frozenset] = set()
+        tol = 0.3
+        for t in self._board.traces:
+            if not t.net_name:
+                continue
+            connected_pairs.add(frozenset([
+                (round(t.x1 / tol) * tol, round(t.y1 / tol) * tol),
+                (round(t.x2 / tol) * tol, round(t.y2 / tol) * tol),
+            ]))
+
+        pen = QPen(QColor(160, 160, 160, 80), 0.8, Qt.DotLine)
+        p.setPen(pen)
+
+        for nn, positions in net_positions.items():
+            if len(positions) < 2:
+                continue
+            hn = self._highlighted_net
+            if hn and nn != hn:
+                continue
+            # Star ratsnest: connect all to the first pad (simple, fast)
+            fx, fy = self._w2s(*positions[0])
+            for pos in positions[1:]:
+                sx, sy = self._w2s(*pos)
+                p.drawLine(int(fx), int(fy), int(sx), int(sy))
+
     def _draw_route_preview(self, p: QPainter) -> None:
         if not self._routing or not self._route_pts:
             return
@@ -632,6 +802,7 @@ class PCBEditor(QWidget):
             EditorMode.VIA:      "PRZELOTKA",
             EditorMode.DELETE:   "USUŃ",
             EditorMode.ADD_COMP: "UMIEŚĆ KOMPONENT",
+            EditorMode.ZONE:     f"STREFA MIEDZI ({self._zone_net}) [{len(self._zone_pts)} pkt]",
         }
         mode_str = mode_names.get(self._mode, "")
         info = (f"[{mode_str}]  X={wx:.2f}  Y={wy:.2f} mm  "
@@ -673,6 +844,9 @@ class PCBEditor(QWidget):
 
         elif self._mode == EditorMode.ADD_COMP:
             self._place_pending_comp(snx, sny)
+
+        elif self._mode == EditorMode.ZONE:
+            self._handle_zone_click(snx, sny, e)
 
     def _handle_select_click(self, wx: float, wy: float,
                               sx: float, sy: float) -> None:
@@ -728,6 +902,12 @@ class PCBEditor(QWidget):
         self.update()
 
     def mouseDoubleClickEvent(self, e: QMouseEvent) -> None:
+        if e.button() == Qt.LeftButton and self._mode == EditorMode.ZONE and self._zone_pts:
+            sx, sy = e.position().x(), e.position().y()
+            wx, wy = self._s2w(sx, sy)
+            snx, sny = self._snap(wx, wy)
+            self._finish_zone(snx, sny)
+            return
         if e.button() == Qt.LeftButton and self._mode == EditorMode.ROUTE and self._routing:
             sx, sy = e.position().x(), e.position().y()
             wx, wy = self._s2w(sx, sy)
@@ -756,6 +936,29 @@ class PCBEditor(QWidget):
                   drill=self._via_drill, size=self._via_size,
                   net_name=self._via_net)
         self._do(_AddVia(self._board, via))
+        self.update()
+
+    def _handle_zone_click(self, wx: float, wy: float, e) -> None:
+        if e.type().name == "MouseButtonDblClick":
+            self._finish_zone(wx, wy)
+        else:
+            self._zone_pts.append((wx, wy))
+        self.update()
+
+    def _finish_zone(self, ex: float = 0, ey: float = 0) -> None:
+        pts = list(self._zone_pts)
+        if len(pts) < 3:
+            self._zone_pts.clear()
+            self.update()
+            return
+        zone = CopperZone(
+            points=pts,
+            net_name=self._zone_net,
+            layer=self._active_layer,
+            clearance=0.2,
+        )
+        self._do(_AddZone(self._board, zone))
+        self._zone_pts.clear()
         self.update()
 
     def _handle_delete_click(self, wx: float, wy: float) -> None:
@@ -871,12 +1074,18 @@ class PCBEditor(QWidget):
                 self._route_pts.clear()
                 self.status_message.emit("Trasowanie anulowane")
                 self.update()
-            elif self._mode == EditorMode.ADD_COMP:
+            elif self._zone_pts:
+                self._zone_pts.clear()
+                self.status_message.emit("Strefa anulowana")
+                self.update()
+            elif self._mode in (EditorMode.ADD_COMP, EditorMode.ZONE):
                 self.set_mode(EditorMode.SELECT)
 
         elif e.key() == Qt.Key_Return or e.key() == Qt.Key_Enter:
             if self._routing and len(self._route_pts) >= 2:
                 self._finish_route(*self._route_pts[-1])
+            elif self._mode == EditorMode.ZONE and len(self._zone_pts) >= 3:
+                self._finish_zone()
 
         elif e.key() == Qt.Key_Delete or e.key() == Qt.Key_Backspace:
             self.delete_selected()
@@ -907,6 +1116,14 @@ class PCBEditor(QWidget):
             self.set_mode(EditorMode.VIA)
         elif e.key() == Qt.Key_X:
             self.set_mode(EditorMode.DELETE)
+        elif e.key() == Qt.Key_Z and not (e.modifiers() & Qt.ControlModifier):
+            self.set_mode(EditorMode.ZONE)
+        elif e.key() == Qt.Key_N:
+            self._show_ratsnest = not self._show_ratsnest
+            self.status_message.emit(
+                "Ratsnest: " + ("widoczny" if self._show_ratsnest else "ukryty")
+            )
+            self.update()
 
     # ── Rotate / Mirror ───────────────────────────────────────────────────────
 

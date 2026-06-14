@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QStatusBar, QMenuBar, QMenu, QFileDialog, QMessageBox, QLabel, QSplitter,
     QApplication
 )
-from PySide6.QtCore import Qt, Signal, QThread, QObject, QEvent
+from PySide6.QtCore import Qt, Signal, QThread, QObject, QEvent, QTimer
 from PySide6.QtGui import QAction, QKeySequence, QIcon, QCloseEvent
 
 from src.core.project import Project
@@ -274,7 +274,33 @@ class MainWindow(QMainWindow):
     def _build_status(self) -> None:
         self._status_label = QLabel("Brak projektu")
         self.statusBar().addPermanentWidget(self._status_label)
+
+        self._ollama_dot = QLabel("⚫ Ollama")
+        self._ollama_dot.setStyleSheet("color: #666; font-size: 10px; padding: 0 6px;")
+        self._ollama_dot.setToolTip("Status serwera Ollama (AI lokalny)")
+        self.statusBar().addPermanentWidget(self._ollama_dot)
+
+        self._ollama_timer = QTimer(self)
+        self._ollama_timer.timeout.connect(self._check_ollama_status)
+        self._ollama_timer.start(8000)  # check every 8 s
+        self._check_ollama_status()     # immediate first check
+
         self.statusBar().showMessage("Witaj w ElectroVision!")
+
+    def _check_ollama_status(self) -> None:
+        try:
+            from src.ai.ollama_utils import is_ollama_running
+            if is_ollama_running():
+                self._ollama_dot.setText("🟢 Ollama")
+                self._ollama_dot.setStyleSheet("color: #4caf50; font-size: 10px; padding: 0 6px;")
+                self._ollama_dot.setToolTip("Ollama działa — AI dostępne")
+            else:
+                self._ollama_dot.setText("🔴 Ollama")
+                self._ollama_dot.setStyleSheet("color: #f44336; font-size: 10px; padding: 0 6px;")
+                self._ollama_dot.setToolTip("Ollama niedostępne — uruchom 'ollama serve'")
+        except Exception:
+            self._ollama_dot.setText("⚫ Ollama")
+            self._ollama_dot.setStyleSheet("color: #666; font-size: 10px; padding: 0 6px;")
 
     def _update_title(self) -> None:
         name = self._project.name

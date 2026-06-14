@@ -125,7 +125,7 @@ class PCBEditorPanel(QWidget):
         self._editor.undo_state_changed.connect(self._on_undo_state)
         ec_layout.addWidget(self._editor, 1)
 
-        self._status_bar = QLabel("Gotowy  |  S=Wybierz  R=Trasuj  V=Przelotka  X=Usuń  Space=Obróć  M=Lustro  F=Dopasuj  Ctrl+Z/Y=Cofnij/Ponów")
+        self._status_bar = QLabel("Gotowy  |  S=Wybierz  R=Trasuj  V=Przelotka  X=Usuń  Z=Strefa  N=Ratsnest  Space=Obróć  M=Lustro  F=Dopasuj  Enter=Zamknij strefę  Ctrl+Z/Y=Cofnij/Ponów")
         self._status_bar.setStyleSheet(
             "background: #0d1117; color: #666; font-size: 9px; "
             "font-family: Consolas; padding: 2px 6px;"
@@ -156,9 +156,10 @@ class PCBEditorPanel(QWidget):
         self._btn_route  = self._mode_btn("〰 Trasuj (R)",  EditorMode.ROUTE)
         self._btn_via    = self._mode_btn("⊙ Przelotka (V)", EditorMode.VIA)
         self._btn_delete = self._mode_btn("✕ Usuń (X)",   EditorMode.DELETE)
+        self._btn_zone   = self._mode_btn("⬡ Strefa (Z)", EditorMode.ZONE)
 
         self._mode_group = QButtonGroup(self)
-        for btn in [self._btn_select, self._btn_route, self._btn_via, self._btn_delete]:
+        for btn in [self._btn_select, self._btn_route, self._btn_via, self._btn_delete, self._btn_zone]:
             btn.setCheckable(True)
             self._mode_group.addButton(btn)
             tb.addWidget(btn)
@@ -262,6 +263,28 @@ class PCBEditorPanel(QWidget):
         btn_dist_v.setToolTip("Rozmieść równomiernie w pionie")
         btn_dist_v.clicked.connect(self._editor.distribute_v)
         tb.addWidget(btn_dist_v)
+
+        tb.addSeparator()
+
+        # Zone net selector
+        tb.addWidget(QLabel("  Sieć strefy:"))
+        self._zone_net_combo = QComboBox()
+        self._zone_net_combo.addItem("GND")
+        self._zone_net_combo.setMinimumWidth(80)
+        self._zone_net_combo.setEditable(True)
+        self._zone_net_combo.currentTextChanged.connect(
+            lambda t: self._editor.set_zone_net(t)
+        )
+        tb.addWidget(self._zone_net_combo)
+
+        self._btn_ratsnest = QPushButton("⋯ Ratsnest (N)")
+        self._btn_ratsnest.setCheckable(True)
+        self._btn_ratsnest.setChecked(True)
+        self._btn_ratsnest.setToolTip("Pokaż/ukryj niezarastrowane połączenia (N)")
+        self._btn_ratsnest.clicked.connect(
+            lambda checked: self._editor.toggle_ratsnest(checked)
+        )
+        tb.addWidget(self._btn_ratsnest)
 
         tb.addSeparator()
 
@@ -475,6 +498,22 @@ class PCBEditorPanel(QWidget):
         self._project = project
         self._editor.set_board(project.board)
         self._update_stats()
+        self._populate_zone_nets()
+
+    def _populate_zone_nets(self) -> None:
+        board = self._project.board
+        self._zone_net_combo.blockSignals(True)
+        current = self._zone_net_combo.currentText()
+        self._zone_net_combo.clear()
+        if board:
+            for net in board.nets:
+                self._zone_net_combo.addItem(net.name)
+        if not self._zone_net_combo.count():
+            self._zone_net_combo.addItem("GND")
+        idx = self._zone_net_combo.findText(current)
+        self._zone_net_combo.setCurrentIndex(max(0, idx))
+        self._zone_net_combo.blockSignals(False)
+        self._editor.set_zone_net(self._zone_net_combo.currentText())
 
     def _on_comp_selected(self, comp: Optional[Component]) -> None:
         if comp:
@@ -553,6 +592,7 @@ class PCBEditorPanel(QWidget):
             f"<b>Ścieżki:</b> {len(board.traces)}<br>"
             f"<b>Przelotki:</b> {len(board.vias)}<br>"
             f"<b>Sieci:</b> {len(board.nets)}<br>"
+            f"<b>Strefy Cu:</b> {len(board.zones)}<br>"
             f"<b>Warstwy:</b> {len(board.layers)}"
         )
 

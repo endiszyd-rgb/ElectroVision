@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Optional
 
 from src.core.project import Project
-from src.core.models.pcb_board import PCBBoard, Trace, Via, GraphicLine, GraphicArc
+from src.core.models.pcb_board import PCBBoard, Trace, Via, GraphicLine, GraphicArc, CopperZone
 from src.core.models.component import Component, Pad
 from src.core.models.layer import Layer
 from src.core.models.net import Net
@@ -94,6 +94,16 @@ def save_project(project: Project, path: str) -> None:
                 }
                 for g in board.graphic_lines
             ],
+            "zones": [
+                {
+                    "points":    z.points,
+                    "net_name":  z.net_name,
+                    "layer":     z.layer,
+                    "clearance": z.clearance,
+                    "priority":  z.priority,
+                }
+                for z in board.zones
+            ],
         }
 
     Path(path).write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -171,6 +181,16 @@ def load_project(path: str) -> Project:
             )
             for g in board_raw.get("graphic_lines", [])
         ]
+        zones = [
+            CopperZone(
+                points=z.get("points", []),
+                net_name=z.get("net_name", ""),
+                layer=z.get("layer", "F.Cu"),
+                clearance=z.get("clearance", 0.2),
+                priority=z.get("priority", 0),
+            )
+            for z in board_raw.get("zones", [])
+        ]
         board = PCBBoard(
             title=board_raw.get("title", name),
             company=board_raw.get("company", ""),
@@ -182,6 +202,7 @@ def load_project(path: str) -> Project:
             graphic_lines=graphic_lines,
             nets=nets,
             layers=layers,
+            zones=zones,
         )
 
     return Project(name=name, path=Path(path), board=board)

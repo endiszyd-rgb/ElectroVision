@@ -46,6 +46,15 @@ class GraphicArc:
 
 
 @dataclass
+class CopperZone:
+    points:    list           # list[tuple[float, float]] — polygon vertices in mm
+    net_name:  str   = ""
+    layer:     str   = "F.Cu"
+    clearance: float = 0.2
+    priority:  int   = 0
+
+
+@dataclass
 class PCBBoard:
     title: str = ""
     company: str = ""
@@ -58,6 +67,7 @@ class PCBBoard:
     graphic_arcs: list[GraphicArc] = field(default_factory=list)
     nets: list[Net] = field(default_factory=list)
     layers: list[Layer] = field(default_factory=list)
+    zones: list[CopperZone] = field(default_factory=list)
 
     @property
     def bounding_box(self) -> tuple[float, float, float, float]:
