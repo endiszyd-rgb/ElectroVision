@@ -122,6 +122,7 @@ class PCBEditorPanel(QWidget):
 
         self._editor.component_selected.connect(self._on_comp_selected)
         self._editor.component_double_clicked.connect(self._on_comp_edit)
+        self._editor.trace_selected.connect(self._on_trace_selected)
         self._editor.board_modified.connect(self._on_board_modified)
         self._editor.status_message.connect(self._show_status)
         self._editor.undo_state_changed.connect(self._on_undo_state)
@@ -737,6 +738,33 @@ class PCBEditorPanel(QWidget):
         else:
             self._prop_desc.setPlaceholderText("Kliknij komponent na płytce…")
             self._prop_desc.clear()
+
+    def _on_trace_selected(self, trace) -> None:
+        if trace is None:
+            return
+        import math
+        length = math.hypot(trace.x2 - trace.x1, trace.y2 - trace.y1)
+        # Basic microstrip impedance estimate (FR4: h=1.6mm, t=0.035mm, er=4.5)
+        try:
+            from src.ui.dialogs.electronics_calc_dialog import calc_microstrip, calc_trace_current
+            z0_res = calc_microstrip(trace.width, 1.6, 0.035, 4.5)
+            cur_res = calc_trace_current(trace.width, 0.035, 10.0, "external")
+            z0_str = f"{z0_res['Z0']:.1f} Ω" if "Z0" in z0_res else "—"
+            imax_str = f"{cur_res['I_max_A']:.2f} A"
+        except Exception:
+            z0_str = "—"; imax_str = "—"
+        self._prop_desc.setPlainText(
+            f"=== Wybrana ścieżka ===\n"
+            f"Sieć:      {trace.net_name or '—'}\n"
+            f"Warstwa:   {trace.layer}\n"
+            f"Szerokość: {trace.width:.3f} mm\n"
+            f"Długość:   {length:.3f} mm\n"
+            f"Start:     ({trace.x1:.3f}, {trace.y1:.3f})\n"
+            f"Koniec:    ({trace.x2:.3f}, {trace.y2:.3f})\n\n"
+            f"--- Analiza (FR4 standard) ---\n"
+            f"Impedancja Z₀:  {z0_str}\n"
+            f"Prąd max (ΔT10°C): {imax_str}"
+        )
 
     def _apply_props(self) -> None:
         comp = self._editor._sel_comp

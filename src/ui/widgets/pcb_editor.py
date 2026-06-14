@@ -273,6 +273,7 @@ class _EditComp:
 class PCBEditor(QWidget):
     component_selected        = Signal(object)        # Component | None
     component_double_clicked  = Signal(object)        # Component (edit request)
+    trace_selected            = Signal(object)        # Trace | None
     board_modified            = Signal()
     status_message            = Signal(str)
     undo_state_changed        = Signal(bool, bool)    # can_undo, can_redo
@@ -1037,6 +1038,7 @@ class PCBEditor(QWidget):
             self._sel_comp  = None
             self._sel_via   = None
             self.component_selected.emit(None)
+            self.trace_selected.emit(tr)
             # Auto-highlight net of clicked trace
             if tr.net_name:
                 self._highlighted_net = tr.net_name
@@ -1051,6 +1053,7 @@ class PCBEditor(QWidget):
         self._sel_comp = self._sel_trace = self._sel_via = None
         self._highlighted_net = ""
         self.component_selected.emit(None)
+        self.trace_selected.emit(None)
         self.update()
 
     def _handle_route_click(self, snx: float, sny: float,
