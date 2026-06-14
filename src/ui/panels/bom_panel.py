@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QFileDialog, QLabel, QComboBox, QMessageBox,
     QGroupBox, QTextEdit, QProgressBar, QSplitter
 )
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Qt, Slot, Signal
 from PySide6.QtGui import QFont
 
 from src.core.project import Project
@@ -14,6 +14,8 @@ from src.ai.bridge import AIBridge
 
 
 class BOMPanel(QWidget):
+    component_selected = Signal(str)   # reference — for cross-panel highlight
+
     def __init__(self, project: Project, parent=None) -> None:
         super().__init__(parent)
         self._project = project
@@ -47,18 +49,23 @@ class BOMPanel(QWidget):
         btn_csv   = QPushButton("📄 CSV")
         btn_excel = QPushButton("📊 Excel")
         btn_html  = QPushButton("🌐 HTML")
+        btn_lcsc  = QPushButton("🏪 LCSC CSV")
         btn_csv.clicked.connect(self._export_csv)
         btn_excel.clicked.connect(self._export_excel)
         btn_html.clicked.connect(self._export_html)
+        btn_lcsc.clicked.connect(self._export_lcsc)
+        btn_lcsc.setToolTip("Eksportuj BOM w formacie LCSC/JLCPCB do złożenia SMT")
         toolbar.addWidget(btn_csv)
         toolbar.addWidget(btn_excel)
         toolbar.addWidget(btn_html)
+        toolbar.addWidget(btn_lcsc)
         layout.addLayout(toolbar)
 
         # ── Splitter: table + AI ──────────────────────────────────────────────
         splitter = QSplitter(Qt.Vertical)
 
         self._table = ComponentTableWidget()
+        self._table.component_selected.connect(self.component_selected)
         splitter.addWidget(self._table)
 
         # AI analysis box
@@ -174,6 +181,25 @@ class BOMPanel(QWidget):
         try:
             BOMGenerator.to_excel(comps, path)
             QMessageBox.information(self, "BOM", f"BOM wyeksportowany:\n{path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Błąd", str(e))
+
+    def _export_lcsc(self) -> None:
+        comps = self._get_components()
+        if not comps:
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Zapisz BOM LCSC/JLCPCB",
+            f"{self._project.name}_bom_lcsc.csv", "CSV (*.csv)"
+        )
+        if not path:
+            return
+        try:
+            from src.generators.jlcpcb_generator import generate_bom_csv
+            csv_text = generate_bom_csv(self._project.board)
+            with open(path, "w", encoding="utf-8-sig", newline="") as f:
+                f.write(csv_text)
+            QMessageBox.information(self, "LCSC BOM", f"Zapisano:\n{path}")
         except Exception as e:
             QMessageBox.critical(self, "Błąd", str(e))
 

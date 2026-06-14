@@ -300,6 +300,9 @@ class MainWindow(QMainWindow):
         # Connect ValidationPanel DRC results → PCBEditorPanel overlay
         self._valid_panel.drc_violations_ready.connect(self._pcb_editor.set_drc_violations)
 
+        # Connect BOM component click → PCBEditor find + switch tab
+        self._bom_panel.component_selected.connect(self._on_bom_component_selected)
+
     def _build_status(self) -> None:
         self._status_label = QLabel("Brak projektu")
         self.statusBar().addPermanentWidget(self._status_label)
@@ -360,6 +363,11 @@ class MainWindow(QMainWindow):
         """Pass net highlight request to PCB editor."""
         if hasattr(self._pcb_editor, "highlight_net"):
             self._pcb_editor.highlight_net(net_name)
+
+    def _on_bom_component_selected(self, reference: str) -> None:
+        """BOM row click → switch to PCB Editor tab and find component."""
+        self._tabs.setCurrentWidget(self._pcb_editor)
+        self._pcb_editor._editor.find_component(reference)
 
     # ── Recent menu ───────────────────────────────────────────────────────────
 

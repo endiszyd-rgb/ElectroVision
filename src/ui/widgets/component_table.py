@@ -1,4 +1,4 @@
-from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QSortFilterProxyModel
+from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, QSortFilterProxyModel, Signal
 from PySide6.QtWidgets import QTableView, QHeaderView, QWidget, QVBoxLayout, QLineEdit, QLabel, QHBoxLayout
 from src.core.models.component import Component
 
@@ -54,6 +54,8 @@ class ComponentTableModel(QAbstractTableModel):
 
 
 class ComponentTableWidget(QWidget):
+    component_selected = Signal(str)   # emits reference on row click
+
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         layout = QVBoxLayout(self)
@@ -86,6 +88,7 @@ class ComponentTableWidget(QWidget):
 
         self._filter_edit.textChanged.connect(self._proxy.setFilterFixedString)
         self._model.modelReset.connect(self._update_count)
+        self._table.selectionModel().selectionChanged.connect(self._on_selection)
 
     def set_components(self, components: list[Component]) -> None:
         self._model.set_components(components)
@@ -99,3 +102,8 @@ class ComponentTableWidget(QWidget):
             return None
         source_idx = self._proxy.mapToSource(indexes[0])
         return self._model.component_at(source_idx.row())
+
+    def _on_selection(self) -> None:
+        comp = self.selected_component()
+        if comp:
+            self.component_selected.emit(comp.reference)
