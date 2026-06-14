@@ -1278,6 +1278,8 @@ class PCBEditor(QWidget):
                     self.undo()
             elif e.key() == Qt.Key_Y:
                 self.redo()
+            elif e.key() == Qt.Key_D:
+                self._duplicate_selected()
 
         elif e.key() == Qt.Key_Space:
             self._rotate_selected(90.0)
@@ -1408,6 +1410,29 @@ class PCBEditor(QWidget):
         self.board_modified.emit()
         self.status_message.emit("Rozmieszczono równomiernie w pionie")
         self.update()
+
+    # ── Duplicate ─────────────────────────────────────────────────────────────
+
+    def _duplicate_selected(self) -> None:
+        if not self._sel_comp or not self._board:
+            return
+        new_comp = copy.deepcopy(self._sel_comp)
+        # Auto-increment reference to avoid collision
+        prefix = "".join(ch for ch in new_comp.reference if ch.isalpha())
+        existing_nums = []
+        for c in self._board.components:
+            if c.reference.startswith(prefix):
+                try:
+                    existing_nums.append(int(c.reference[len(prefix):]))
+                except ValueError:
+                    pass
+        next_num = max(existing_nums, default=0) + 1
+        new_comp.reference = f"{prefix}{next_num}"
+        # Switch to ADD_COMP mode — user clicks to place, _place_pending_comp adds it
+        self.set_pending_component(new_comp)
+        self.status_message.emit(
+            f"Duplikuj {new_comp.reference} — kliknij gdzie umieścić  |  Esc = anuluj"
+        )
 
     # ── Net highlight ─────────────────────────────────────────────────────────
 

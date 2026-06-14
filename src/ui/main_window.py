@@ -204,6 +204,14 @@ class MainWindow(QMainWindow):
         act_model.triggered.connect(self._on_choose_model)
         ai_menu.addAction(act_model)
 
+        # ── Narzędzia ─────────────────────────────────────────────────────────
+        tools_menu = mb.addMenu("&Narzędzia")
+
+        act_calc = QAction("🧮 Kalkulator elektroniczny…", self)
+        act_calc.setShortcut(QKeySequence("Ctrl+K"))
+        act_calc.triggered.connect(self._open_calc)
+        tools_menu.addAction(act_calc)
+
         # ── Projekt ───────────────────────────────────────────────────────────
         project_menu = mb.addMenu("&Projekt")
 
@@ -605,6 +613,11 @@ class MainWindow(QMainWindow):
         self._tabs.setCurrentWidget(self._ai_panel)
         self._ai_panel.show_model_selector()
 
+    def _open_calc(self) -> None:
+        from src.ui.dialogs.electronics_calc_dialog import ElectronicsCalcDialog
+        dlg = ElectronicsCalcDialog(self)
+        dlg.show()
+
     def _on_settings(self) -> None:
         from src.ui.dialogs.settings_dialog import SettingsDialog
         dlg = SettingsDialog(self)
@@ -663,12 +676,14 @@ class MainWindow(QMainWindow):
             "<tr><td><b>Ctrl+G</b></td><td>Eksportuj Gerber + Drill</td></tr>"
             "<tr><td><b>Ctrl+Shift+G</b></td><td>Eksportuj JLCPCB/PCBWay ZIP (Gerber+BOM+CPL)</td></tr>"
             "<tr><td><b>Ctrl+P</b></td><td>Eksportuj pełny raport PDF</td></tr>"
+            "<tr><td><b>Ctrl+K</b></td><td>Kalkulator elektroniczny</td></tr>"
             "<tr><td><b>Ctrl+,</b></td><td>Ustawienia aplikacji</td></tr>"
             "<tr><td><b>Ctrl+F (edytor PCB)</b></td><td>Znajdź komponent</td></tr>"
             "<tr><td><b>Alt+1..9</b></td><td>Przełącz zakładki 1-9</td></tr>"
             "<tr><td><b>F11</b></td><td>Pełny ekran</td></tr>"
             "<tr><td><b>F (w edytorze PCB)</b></td><td>Dopasuj widok</td></tr>"
             "<tr><td><b>S/R/V/X/T (edytor PCB)</b></td><td>Tryb: Select/Route/Via/Delete/Pomiar</td></tr>"
+            "<tr><td><b>Ctrl+D (edytor PCB)</b></td><td>Duplikuj wybrany komponent</td></tr>"
             "<tr><td><b>Space (edytor PCB)</b></td><td>Obróć komponent o 90°</td></tr>"
             "<tr><td><b>M (edytor PCB)</b></td><td>Lustro komponentu</td></tr>"
             "<tr><td><b>Ctrl+Z / Ctrl+Y</b></td><td>Cofnij / Ponów</td></tr>"
