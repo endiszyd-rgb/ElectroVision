@@ -222,6 +222,20 @@ class MainWindow(QMainWindow):
         act_calc.triggered.connect(self._open_calc)
         tools_menu.addAction(act_calc)
 
+        act_power = QAction("⚡ Analiza zasilania…", self)
+        act_power.setShortcut(QKeySequence("Ctrl+Shift+W"))
+        act_power.triggered.connect(self._open_power_analysis)
+        tools_menu.addAction(act_power)
+
+        act_thermal = QAction("🌡 Estymacja termiczna…", self)
+        act_thermal.setShortcut(QKeySequence("Ctrl+Shift+T"))
+        act_thermal.triggered.connect(self._open_thermal)
+        tools_menu.addAction(act_thermal)
+
+        act_signal = QAction("📡 Analiza sygnałowa…", self)
+        act_signal.triggered.connect(self._open_signal_analysis)
+        tools_menu.addAction(act_signal)
+
         # ── Projekt ───────────────────────────────────────────────────────────
         project_menu = mb.addMenu("&Projekt")
 
@@ -669,6 +683,21 @@ class MainWindow(QMainWindow):
         from src.ui.dialogs.electronics_calc_dialog import ElectronicsCalcDialog
         dlg = ElectronicsCalcDialog(self)
         dlg.show()
+
+    def _open_power_analysis(self) -> None:
+        from src.ui.dialogs.power_analysis_dialog import PowerAnalysisDialog
+        dlg = PowerAnalysisDialog(self._project, self)
+        dlg.exec()
+
+    def _open_thermal(self) -> None:
+        from src.ui.dialogs.thermal_dialog import ThermalDialog
+        dlg = ThermalDialog(self._project, self)
+        dlg.exec()
+
+    def _open_signal_analysis(self) -> None:
+        from src.ui.dialogs.signal_analysis_dialog import SignalAnalysisDialog
+        dlg = SignalAnalysisDialog(self._project, self)
+        dlg.exec()
 
     def _on_settings(self) -> None:
         from src.ui.dialogs.settings_dialog import SettingsDialog
