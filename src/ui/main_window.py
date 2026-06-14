@@ -155,6 +155,16 @@ class MainWindow(QMainWindow):
         act_jlcpcb.triggered.connect(self._export_jlcpcb)
         export_menu.addAction(act_jlcpcb)
 
+        export_menu.addSeparator()
+
+        act_netlist_csv = QAction("Netlist CSV (połączenia padów)", self)
+        act_netlist_csv.triggered.connect(self._export_netlist_csv)
+        export_menu.addAction(act_netlist_csv)
+
+        act_netlist_kicad = QAction("Netlist KiCad (.net)", self)
+        act_netlist_kicad.triggered.connect(self._export_netlist_kicad)
+        export_menu.addAction(act_netlist_kicad)
+
         file_menu.addSeparator()
 
         act_tray = QAction("Minimalizuj do traya przy zamknięciu", self)
@@ -620,6 +630,40 @@ class MainWindow(QMainWindow):
     def _on_choose_model(self) -> None:
         self._tabs.setCurrentWidget(self._ai_panel)
         self._ai_panel.show_model_selector()
+
+    def _export_netlist_csv(self) -> None:
+        if not self._check_board():
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Zapisz netlist CSV",
+            f"{self._project.name}_netlist.csv", "CSV (*.csv)"
+        )
+        if not path:
+            return
+        try:
+            from src.generators.netlist_generator import generate_netlist_csv
+            with open(path, "w", encoding="utf-8-sig", newline="") as f:
+                f.write(generate_netlist_csv(self._project.board))
+            QMessageBox.information(self, "Netlist", f"Zapisano:\n{path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Błąd", str(e))
+
+    def _export_netlist_kicad(self) -> None:
+        if not self._check_board():
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Zapisz netlist KiCad",
+            f"{self._project.name}.net", "Netlist (*.net)"
+        )
+        if not path:
+            return
+        try:
+            from src.generators.netlist_generator import generate_kicad_netlist
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(generate_kicad_netlist(self._project.board, self._project.name))
+            QMessageBox.information(self, "Netlist KiCad", f"Zapisano:\n{path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Błąd", str(e))
 
     def _open_calc(self) -> None:
         from src.ui.dialogs.electronics_calc_dialog import ElectronicsCalcDialog
