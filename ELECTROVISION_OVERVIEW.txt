@@ -1,0 +1,186 @@
+================================================================================
+  ELECTROVISION — OPIS PROJEKTU DLA NOWEGO CHATU / INNEGO AI
+  Wersja: 0.1.0  |  Data: 2026-06-13
+================================================================================
+
+## CZYM JEST ELECTROVISION?
+
+ElectroVision to samodzielna, desktopowa aplikacja Python/PySide6 do projektowania
+elektroniki PCB. Stanowi centrum zarządzania projektem elektronicznym — łączy
+wizualizację PCB, zarządzanie BOM, generowanie kodu dla mikrokontrolerów,
+generowanie obudów 3D (STL/STEP do Fusion 360), lokalny AI (Ollama) oraz
+synchronizację z GitHub, Google Drive i własnym serwerem projektów.
+
+Aplikacja NIE zastępuje KiCad, Fusion 360 ani Arduino IDE — współpracuje z nimi
+poprzez integrację (import .kicad_pcb, eksport .step/.stl, zapis .ino/.py/.cpp).
+
+================================================================================
+## STACK TECHNOLOGICZNY
+
+- GUI:           PySide6 (Qt6) — ciemny motyw Fusion
+- PCB Parser:    sexpdata — parsuje S-expression KiCad 6/7/8
+- 2D Renderer:   QPainter — renderuje warstwy PCB (Cu, SilkS, Mask, Edge.Cuts)
+- 3D Renderer:   Three.js w QWebEngineView — interaktywna wizualizacja PCB 3D
+- AI:            Ollama (lokalny LLM, np. Llama3, Mistral, CodeLlama)
+- 3D Generator:  CadQuery (STEP + STL) z fallback trimesh
+- Kod:           Jinja2 (szablony Arduino/MicroPython/C++)
+- BOM:           pandas + openpyxl (CSV + Excel)
+- Serwer:        Flask REST API
+- Testy:         pytest
+
+================================================================================
+## STRUKTURA PLIKÓW (kluczowe)
+
+ElectroVision/
+├── main.py                          # python main.py → uruchomienie
+├── requirements.txt                 # pip install -r requirements.txt
+├── src/
+│   ├── app.py                       # QApplication, ciemny motyw
+│   ├── ui/
+│   │   ├── main_window.py           # Główne okno, 7 zakładek w menu bocznym
+│   │   ├── panels/
+│   │   │   ├── pcb_viewer_panel.py  # Zakładka "PCB 2D / 3D"
+│   │   │   ├── bom_panel.py         # Zakładka "BOM" + eksport CSV/Excel
+│   │   │   ├── code_gen_panel.py    # Zakładka "Kod" + syntax highlight + Arduino IDE
+│   │   │   ├── stl_gen_panel.py     # Zakładka "STL / STEP 3D" + Fusion 360
+│   │   │   ├── ai_panel.py          # Zakładka "AI Asystent" — chat z Ollama
+│   │   │   ├── validation_panel.py  # Zakładka "Walidacja DRC"
+│   │   │   └── cloud_panel.py       # Zakładka "Chmura" — GitHub/Drive/Server
+│   │   └── widgets/
+│   │       ├── pcb_2d_view.py       # QPainter widget: zoom/pan, klik na komponent
+│   │       ├── pcb_3d_view.py       # Three.js 3D PCB: warstwy miedzi, pady, via
+│   │       └── component_table.py   # QTableView z filtrem dla BOM
+│   ├── core/
+│   │   ├── project.py               # Klasa Project (root state)
+│   │   ├── models/
+│   │   │   ├── pcb_board.py         # PCBBoard, Trace, Via, GraphicLine
+│   │   │   ├── component.py         # Component, Pad — z property component_type
+│   │   │   ├── layer.py             # Layer, LayerType enum
+│   │   │   └── net.py               # Net — is_power() auto-detect
+│   │   └── parsers/
+│   │       └── kicad_parser.py      # parse_kicad_pcb(path) → PCBBoard
+│   ├── generators/
+│   │   ├── bom_generator.py         # BOMGenerator.to_csv/to_excel(components, path)
+│   │   ├── code_generator.py        # CodeGenerator.generate(components, platform, mcu)
+│   │   └── stl_generator.py         # STLGenerator(board, params).export_step/stl(path)
+│   ├── validators/
+│   │   ├── pcb_drc.py               # PCBValidator(board).run() → list[dict issues]
+│   │   └── stl_validator.py         # STLValidator(path).run() → list[dict issues]
+│   ├── ai/
+│   │   ├── prompts/
+│   │   │   ├── pcb_system.txt       # Systemowy prompt PCB dla Ollama (bardzo obszerny)
+│   │   │   ├── stl_system.txt       # Systemowy prompt STL/obudowy
+│   │   │   ├── code_system.txt      # Systemowy prompt generowania kodu
+│   │   │   └── loader.py            # load_prompt(name) → str
+│   │   └── knowledge/
+│   │       ├── fetcher.py           # KnowledgeFetcher — pobiera dane z GitHub/Arduino
+│   │       └── data/                # Lokalna baza wiedzy JSON (komponenty, reguły PCB/STL)
+│   └── cloud/
+│       ├── github/client.py         # GitHubClient — push/pull/search PCB projects
+│       ├── gdrive/client.py         # GoogleDriveClient — upload/download/list
+│       └── server/client.py         # ServerClient — REST client dla ElectroVision Server
+└── server/
+    └── app.py                       # Flask REST API (uruchom: python -m server.app)
+
+================================================================================
+## ZAKŁADKI APLIKACJI
+
+1. PCB 2D / 3D
+   - Lewa strona: zakładki "2D" i "3D" (QPainter / Three.js)
+   - 2D: zoom kółkiem, pan prawym przyciskiem, klik = wybranie komponentu
+   - 3D: OrbitControls, wireframe mode, toggle warstw
+   - Prawa strona: informacje o płytce, wybrany komponent, widoczność warstw
+   - Przycisk "Otwórz w KiCad" → uruchamia pcbnew z aktualnym projektem
+
+2. BOM (Bill of Materials)
+   - Tabela komponentów z filtrowaniem i sortowaniem
+   - Grupowanie wg wartości + footprintu
+   - Eksport CSV i Excel (ze stylami, freeze panes, autofilter)
+
+3. Kod (Generator kodu)
+   - Platformy: Arduino (.ino), MicroPython (.py), ESP-IDF (.cpp), PlatformIO
+   - MCU: ESP32, Arduino Uno/Nano/Mega, STM32, RP2040, ESP8266, ATtiny85
+   - Syntax highlighting (bez zewnętrznych bibliotek — custom QSyntaxHighlighter)
+   - "Otwórz w Arduino IDE" → zapisuje .ino do temp i otwiera
+
+4. STL / STEP 3D
+   - Parametry: grubość PCB, margines, wysokość/grubość ścian obudowy, zaokrąglenia
+   - Opcje: obudowa dolna, wieko, model PCB
+   - Generowanie STEP (CadQuery, preferowany dla Fusion 360) + STL (druk 3D)
+   - "Otwórz w Fusion 360" → os.startfile() na Windows
+   - "Otwórz w slicerze" → os.startfile()
+
+5. AI Asystent
+   - Lokalny LLM przez Ollama (zero chmury, zero zewnętrznych API)
+   - Streaming odpowiedzi (chunk_received Signal → append do QTextEdit)
+   - 10 szybkich akcji: propozycja PCB, projekt obudowy, kod, analiza BOM, RF, termika...
+   - Kontekst projektu automatycznie dołączany do każdego promptu
+   - Wybór modelu (llama3, mistral, codellama, phi3, deepseek-coder, ...)
+   - Sprawdzanie dostępnych modeli Ollama
+   - Aktualizacja bazy wiedzy PCB/STL z GitHub/Arduino
+
+6. Walidacja DRC
+   - PCB DRC: szerokości ścieżek, prześwity, przelotki, duplikaty ref, krawędź
+   - STL validator: watertight mesh, normalne, objętość, wymiary, kompatybilność STEP
+   - Tabela wyników z kolorami błędu/ostrzeżenia/info
+   - Sugestie naprawcze dla każdego problemu
+
+7. Chmura
+   - GitHub: login tokenem, push projektu, wyszukiwanie PCB designów na GitHubie
+   - Google Drive: OAuth2, upload/download projektu, lista projektów
+   - ElectroVision Server: lokalny Flask server, rejestracja/login, upload/download/browse
+
+================================================================================
+## AI — JAK DZIAŁA
+
+1. Ollama musi być zainstalowane i uruchomione: `ollama serve`
+2. Model musi być pobrany: `ollama pull llama3` (lub mistral, codellama, etc.)
+3. Aplikacja odpytuje localhost:11434 przez bibliotekę `ollama`
+4. Systemowy prompt z `src/ai/prompts/pcb_system.txt` + kontekst projektu
+   są wstrzykiwane do każdej rozmowy
+5. Odpowiedź streamowana jest chunk po chunku do QTextEdit (QThread + Signals)
+6. Baza wiedzy (fetcher.py) pobiera dane z GitHuba KiCad/Arduino
+   i buduje lokalny JSON z regułami PCB/STL i specyfikacjami komponentów
+
+================================================================================
+## INTEGRACJE ZEWNĘTRZNE
+
+KiCad:
+  - Import: Plik → Importuj KiCad (.kicad_pcb) → parse_kicad_pcb()
+  - Otwórz w KiCad: subprocess.Popen(["pcbnew", path])
+
+Arduino IDE:
+  - Generuj kod → "Otwórz w Arduino IDE" → zapisuje .ino do temp folder
+
+Fusion 360:
+  - Generator STL/STEP → "Otwórz w Fusion 360" → os.startfile(step_path)
+  - Format STEP AP214 (CadQuery export) — najlepszy dla Fusion 360
+
+================================================================================
+## CZEGO JESZCZE BRAKUJE (do zaimplementowania w kolejnych sesjach)
+
+1. Panel wizualizacji 3D STL (podgląd wygenerowanego pliku STL w 3D w aplikacji)
+2. Edytor płytki PCB (dodawanie/przenoszenie komponentów, rysowanie ścieżek)
+3. Panel wizualizacji schematów (import .kicad_sch)
+4. Synchronizacja z bazą komponentów online (SnapEDA, Octopart API)
+5. Szablony projektów (gotowe projekty startowe: ESP32 devboard, Arduino shield, ...)
+6. Drag-and-drop komponentów z biblioteki na płytkę
+7. Auto-routing AI (sugestia tras na podstawie schematu)
+8. Raport kosztów (integracja z Mouser/DigiKey API)
+9. Druk dokumentacji (PDF schematów, BOM, layout)
+10. Ciemny motyw ikony tray + minimalizacja do traya
+
+================================================================================
+## URUCHOMIENIE
+
+pip install -r requirements.txt
+ollama serve          # w osobnym terminalu
+ollama pull llama3    # jednorazowo
+python main.py
+
+# Testy:
+pytest tests/ -v
+
+# Serwer projektów:
+python -m server.app
+================================================================================

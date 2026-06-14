@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"c:\\\\Users\\\\Nitropoint\\\\Desktop\\\\ElectroVision\\\\src\\\\ai\\\\prompts\")",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"c:\\\\Users\\\\Nitropoint\\\\Desktop\\\\ElectroVision\\\\src\\\\ai\\\\knowledge\\\\data\")",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"c:\\\\Users\\\\Nitropoint\\\\Desktop\\\\ElectroVision\\\\src\\\\ai\\\\agents\")",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"c:\\\\Users\\\\Nitropoint\\\\Desktop\\\\ElectroVision\\\\src\\\\cloud\\\\github\")",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"c:\\\\Users\\\\Nitropoint\\\\Desktop\\\\ElectroVision\\\\src\\\\cloud\\\\gdrive\")",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"c:\\\\Users\\\\Nitropoint\\\\Desktop\\\\ElectroVision\\\\src\\\\cloud\\\\server\")",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"c:\\\\Users\\\\Nitropoint\\\\Desktop\\\\ElectroVision\\\\server\\\\routes\")",
+      "PowerShell(New-Item -ItemType Directory -Force -Path \"c:\\\\Users\\\\Nitropoint\\\\Desktop\\\\ElectroVision\\\\server\\\\storage\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\Nitropoint\\\\Desktop\\\\ElectroVision\\\\training_data\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\Nitropoint\\\\Desktop\\\\ElectroVision\\\\training_data\\\\pcb\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\Nitropoint\\\\Desktop\\\\ElectroVision\\\\training_data\\\\stl\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\Nitropoint\\\\Desktop\\\\ElectroVision\\\\training_data\\\\code\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\Nitropoint\\\\Desktop\\\\ElectroVision\\\\training_data\\\\qa_pairs\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\Nitropoint\\\\Desktop\\\\ElectroVision\\\\projects\\\\esp32_weather_station\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\Nitropoint\\\\Desktop\\\\ElectroVision\\\\src\\\\ai\\\\rag\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\Nitropoint\\\\Desktop\\\\ElectroVision\\\\src\\\\ai\\\\agents\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"c:\\\\Users\\\\Nitropoint\\\\Desktop\\\\ElectroVision\\\\src\\\\ai\\\\knowledge\\\\data\")",
+      "WebFetch(domain:cadquery.readthedocs.io)",
+      "WebFetch(domain:docs.espressif.com)",
+      "PowerShell(python -c \"import PySide6; print\\('PySide6 OK:', PySide6.__version__\\)\" 2>&1)",
+      "PowerShell(python -c \"import trimesh; print\\('trimesh OK:', trimesh.__version__\\)\" 2>&1)",
+      "PowerShell(python -c \"import numpy; print\\('numpy OK:', numpy.__version__\\)\" 2>&1)",
+      "PowerShell(C:\\\\ev\\\\Scripts\\\\python -c \"from PySide6.QtWebEngineWidgets import QWebEngineView; print\\('WebEngine OK'\\)\" 2>&1)",
+      "PowerShell(C:\\\\ev\\\\Scripts\\\\python -c \"import PySide6; print\\('PySide6:', PySide6.__version__\\)\" 2>&1)",
+      "PowerShell(C:\\\\ev\\\\Scripts\\\\pip install sentence-transformers 2>&1)",
+      "PowerShell(C:\\\\ev\\\\Scripts\\\\pip install cadquery 2>&1)",
+      "PowerShell(winget search Git.Git 2>&1)",
+      "PowerShell(winget install Git.Git --accept-package-agreements --accept-source-agreements 2>&1)",
+      "PowerShell($env:PATH = \"$env:PATH;C:\\\\Program Files\\\\Git\\\\bin\"; git --version)"
+    ]
+  }
+}

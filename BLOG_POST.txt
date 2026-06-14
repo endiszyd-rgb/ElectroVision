@@ -1,0 +1,122 @@
+================================================================================
+  ELECTROVISION — POST NA BLOGA / PORTFOLIO
+================================================================================
+
+TYTUŁ: ElectroVision — Moja aplikacja do projektowania elektroniki PCB z lokalnym AI
+
+---
+
+## O projekcie
+
+ElectroVision to desktopowa aplikacja Python do kompleksowego zarządzania projektami
+elektroniki PCB. Łączy w jednym miejscu wizualizację płytek, zarządzanie listą BOM,
+automatyczne generowanie kodu dla mikrokontrolerów, projektowanie obudów 3D oraz
+lokalnego asystenta AI opartego na Ollama (Llama 3, Mistral, CodeLlama).
+
+Idealna do:
+- Prototypowania projektów IoT i wbudowanych
+- Zarządzania projektami PCB bez potrzeby wychodzenia z jednego okna
+- Nauki elektroniki z pomocą AI
+- Dokumentowania i udostępniania projektów
+
+---
+
+## Główne funkcje
+
+### 🖥 Wizualizacja PCB 2D i 3D
+- Import plików .kicad_pcb (KiCad 6/7/8)
+- Widok 2D renderowany przez QPainter — warstwy miedzi (F.Cu, B.Cu), ścieżki,
+  przelotki, pady, silkscreen, kontur płytki
+- Widok 3D przez Three.js w Qt WebEngineView — interaktywna rotacja, zoom,
+  komponenty jako kolorowe bryły, ścieżki miedzi, przelotki
+- Klik na komponent = wyświetlenie szczegółów (ref, wartość, footprint, piny, datasheet)
+- Otwórz w KiCad jednym kliknięciem
+
+### 📋 Bill of Materials (BOM)
+- Automatyczna lista komponentów z grupowaniem wg wartości i footprintu
+- Filtrowanie i sortowanie w tabeli
+- Eksport do CSV i Excel (ze stylami, freeze panes, autofilter)
+- Podsumowanie typów komponentów
+
+### 💻 Generator kodu
+- Platformy: Arduino (.ino), MicroPython (.py), ESP-IDF C++ (.cpp), PlatformIO
+- Obsługiwane MCU: ESP32, ESP8266, Arduino Uno/Nano/Mega, STM32F103, RP2040, ATtiny85
+- Automatyczne rozpoznanie komponentów: LED → pinMode OUTPUT, switch → INPUT_PULLUP,
+  I2C IC → Wire.begin(), DHT22 → dht.begin(), BME280 → bme.begin(0x76)...
+- Syntax highlighting C++ i Python bez zewnętrznych bibliotek
+- Zapis do pliku + bezpośrednie otwarcie w Arduino IDE
+
+### 📦 Generator STL i STEP
+- Parametryczne generowanie obudów 3D przez CadQuery (STEP) i trimesh (STL)
+- Kontrola: grubość PCB, margines, wysokość obudowy, grubość ścian, zaokrąglenia
+- Automatyczne filarki montażowe (M2 standoffs) w narożnikach
+- Snap-fit wieko obudowy
+- Eksport STEP (Fusion 360) + STL (slicer 3D)
+- Otwórz w Fusion 360 / slicerze jednym kliknięciem
+
+### 🤖 AI Asystent (Ollama — 100% lokalny)
+- Brak chmury, brak zewnętrznych API — LLM działa całkowicie na komputerze
+- Obsługa modeli: Llama 3, Mistral, CodeLlama, Phi-3, DeepSeek Coder, Gemma 2
+- Streaming odpowiedzi w czasie rzeczywistym
+- 10 szybkich akcji: propozycja schematu PCB, projekt obudowy, generowanie kodu,
+  analiza BOM, optymalizacja trasowania, projekt zasilania, analiza termiczna...
+- Kontekst projektu (wymiary PCB, komponenty, sieci) automatycznie dołączany
+- Obszerna baza wiedzy PCB/STL wbudowana w prompty systemowe:
+  * Reguły projektowania PCB (IPC-2221)
+  * Specyfikacje komponentów (ESP32, STM32, BME280, SSD1306...)
+  * Wytyczne druku 3D (tolerancje FDM/SLA, ściany, nawisy, materiały)
+  * Wzorce kodu dla popularnych bibliotek Arduino
+
+### ✅ Walidacja DRC
+- PCB DRC: minimalna szerokość ścieżki, prześwity, przetrwałość przelotki,
+  duplikaty referencji, prześwit od krawędzi, pady bez sieci
+- STL validator: watertight mesh, niespójne normalne, ujemna objętość,
+  wymiary bounding box, kompatybilność STEP
+- Tabela wyników z kolorami (błąd/ostrzeżenie/info) i sugestiami naprawczymi
+
+### ☁ Synchronizacja z chmurą
+- GitHub: push projektu do repozytorium, wyszukiwanie open-source PCB designów
+- Google Drive: OAuth2 upload/download projektów (folder ElectroVision na Drive)
+- ElectroVision Server: lokalny Flask REST API do przechowywania i udostępniania
+  projektów — rejestracja, login, upload, download, przeglądanie, wyszukiwanie
+
+---
+
+## Stack technologiczny
+
+Python 3.10+, PySide6, Qt 6, Three.js, CadQuery, trimesh, Jinja2,
+pandas, openpyxl, Ollama, Flask, PyGithub, Google Drive API, sexpdata
+
+---
+
+## Czego się nauczyłem przy tym projekcie
+
+1. Parseowanie plików S-expression (format KiCad) przez sexpdata
+2. Renderowanie PCB przez QPainter — transformacje world-to-screen, layers
+3. Integracja Three.js w Python przez QWebEngineView + QWebChannel
+4. Streaming odpowiedzi LLM przez QThread + Signal/Slot
+5. Generowanie parametrycznych modeli 3D przez CadQuery + eksport STEP
+6. Budowanie REST API w Flask z autoryzacją tokenem
+7. OAuth2 flow dla Google Drive API
+8. Projektowanie DRC (Design Rule Check) dla PCB
+
+---
+
+## Linki i narzędzia zewnętrzne
+
+- Ollama: https://ollama.ai
+- KiCad: https://kicad.org
+- Fusion 360: https://www.autodesk.com/products/fusion-360
+- Arduino IDE: https://www.arduino.cc
+- CadQuery: https://cadquery.readthedocs.io
+- PySide6: https://doc.qt.io/qtforpython
+
+---
+
+## Status projektu
+
+Wersja 0.1.0 — działający prototyp. Wszystkie moduły zaimplementowane i gotowe
+do dalszego rozwoju. Aplikację można uruchomić przez `python main.py` po zainstalowaniu
+zależności z `requirements.txt`.
+
+================================================================================

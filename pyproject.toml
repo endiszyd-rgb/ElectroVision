@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "electrovision"
+version = "0.1.0"
+description = "Desktop application for PCB design, BOM management, code generation and STL export"
+requires-python = ">=3.10"
+dependencies = [
+    "PySide6>=6.6.0",
+    "sexpdata>=1.0.0",
+    "trimesh>=4.0.0",
+    "numpy>=1.24.0",
+    "Jinja2>=3.1.0",
+    "pandas>=2.0.0",
+    "openpyxl>=3.1.0",
+]
+
+[project.scripts]
+electrovision = "src.app:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
