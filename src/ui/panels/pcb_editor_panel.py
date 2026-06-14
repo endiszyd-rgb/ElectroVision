@@ -502,6 +502,9 @@ class PCBEditorPanel(QWidget):
         # Tab 5: find component
         tabs.addTab(self._build_find_tab(), "Szukaj")
 
+        # Tab 6: undo history + tools
+        tabs.addTab(self._build_history_tab(), "Historia")
+
         layout.addWidget(tabs)
         return w
 
@@ -605,6 +608,53 @@ class PCBEditorPanel(QWidget):
         )
         lay.addWidget(self._comp_list, 1)
         return w
+
+    def _build_history_tab(self) -> QWidget:
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        lay.setContentsMargins(4, 4, 4, 4)
+        lay.setSpacing(4)
+
+        hdr = QLabel("Historia operacji")
+        hdr.setStyleSheet("color:#aaa; font-size:9px; padding-bottom:2px;")
+        lay.addWidget(hdr)
+
+        self._history_list = QListWidget()
+        self._history_list.setFont(QFont("Consolas", 8))
+        self._history_list.setStyleSheet(
+            "QListWidget { background:#0d1117; border:1px solid #2a2a3a; }"
+            "QListWidget::item:selected { background:#1a3a6a; }"
+        )
+        lay.addWidget(self._history_list, 1)
+
+        btn_snap = QPushButton("⊞ Wyrównaj wszystkie do siatki")
+        btn_snap.setToolTip("Snap all components to the current grid")
+        btn_snap.clicked.connect(self._editor.snap_all_to_grid)
+        lay.addWidget(btn_snap)
+
+        btn_clear_drc = QPushButton("✕ Wyczyść overlay DRC")
+        btn_clear_drc.clicked.connect(self._editor.clear_drc_violations)
+        lay.addWidget(btn_clear_drc)
+
+        btn_clear_hl = QPushButton("✕ Wyczyść podświetlenie sieci")
+        btn_clear_hl.clicked.connect(self._editor.clear_highlight)
+        lay.addWidget(btn_clear_hl)
+
+        return w
+
+    def _update_history(self) -> None:
+        if not hasattr(self, "_history_list"):
+            return
+        self._history_list.clear()
+        history = self._editor.get_undo_history()
+        for i, (desc, is_done) in enumerate(reversed(history)):
+            item = QListWidgetItem(("✓ " if is_done else "↻ ") + desc)
+            item.setForeground(
+                QColor("#4caf50") if is_done else QColor("#888888")
+            )
+            self._history_list.addItem(item)
+        if self._history_list.count():
+            self._history_list.scrollToTop()
 
     # ── Slots ─────────────────────────────────────────────────────────────────
 
@@ -711,6 +761,7 @@ class PCBEditorPanel(QWidget):
     def _on_board_modified(self) -> None:
         self._modified_label.setText("● Niezapisane zmiany")
         self._update_stats()
+        self._update_history()
 
     def _on_trace_w_change(self, text: str) -> None:
         try:
@@ -727,6 +778,7 @@ class PCBEditorPanel(QWidget):
     def _on_undo_state(self, can_undo: bool, can_redo: bool) -> None:
         self._btn_undo.setEnabled(can_undo)
         self._btn_redo.setEnabled(can_redo)
+        self._update_history()
 
     def _show_status(self, msg: str) -> None:
         self._status_bar.setText(msg)

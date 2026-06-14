@@ -423,6 +423,28 @@ class PCBEditor(QWidget):
     def can_redo(self) -> bool:
         return bool(self._redo_stack)
 
+    def get_undo_history(self) -> list[tuple[str, bool]]:
+        """Return [(description, is_done)] — done commands first, then undone."""
+        done   = [(cmd.describe(), True)  for cmd in self._undo_stack]
+        undone = [(cmd.describe(), False) for cmd in reversed(self._redo_stack)]
+        return done + undone
+
+    def snap_all_to_grid(self) -> None:
+        """Snap every component position to the current grid."""
+        if not self._board:
+            return
+        for comp in self._board.components:
+            new_x, new_y = self._snap(comp.x, comp.y)
+            if (comp.x, comp.y) != (new_x, new_y):
+                cmd = _MoveComp(comp, comp.x, comp.y, new_x, new_y)
+                cmd.redo()
+                self._undo_stack.append(cmd)
+        self._redo_stack.clear()
+        self._emit_undo_state()
+        self.board_modified.emit()
+        self.status_message.emit(f"Wyrównano {len(self._board.components)} komp. do siatki {self._grid_mm}mm")
+        self.update()
+
     def undo(self) -> None:
         if not self._undo_stack:
             return
