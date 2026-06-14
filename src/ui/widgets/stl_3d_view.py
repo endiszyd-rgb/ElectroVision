@@ -1,10 +1,15 @@
-"""STL / STEP 3D Viewer — renders models using Three.js inside QWebEngineView."""
+"""STL / STEP 3D Viewer — renders models using Three.js inside QWebEngineView (optional)."""
 from __future__ import annotations
 import json
 from pathlib import Path
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
-from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtCore import Qt, QUrl
+
+try:
+    from PySide6.QtWebEngineWidgets import QWebEngineView
+    _WEBENGINE_OK = True
+except ImportError:
+    _WEBENGINE_OK = False
 
 
 _HTML = """<!DOCTYPE html>
@@ -206,15 +211,23 @@ class STL3DView(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
+        self._current_path: str = ""
+
+        if not _WEBENGINE_OK:
+            lbl = QLabel("⚠  Widok 3D STL niedostępny (brak PySide6.QtWebEngineWidgets)")
+            lbl.setStyleSheet("color: #888; background: #0d1117; padding: 20px; font-family: Consolas;")
+            lbl.setAlignment(Qt.AlignCenter)
+            layout.addWidget(lbl)
+            self._view = None
+            return
+
         self._view = QWebEngineView()
         self._view.setHtml(_HTML)
         layout.addWidget(self._view)
 
-        self._current_path: str = ""
-
     def load_stl(self, path: str, color: int = 0x4a90d9) -> None:
         """Load and display an STL file."""
-        if not Path(path).exists():
+        if not self._view or not Path(path).exists():
             return
         self._current_path = path
 

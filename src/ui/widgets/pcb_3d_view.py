@@ -1,10 +1,15 @@
-"""3D PCB viewer: Three.js rendered inside Qt WebEngineView."""
+"""3D PCB viewer: Three.js rendered inside Qt WebEngineView (optional)."""
 import json
-from PySide6.QtWidgets import QWidget, QVBoxLayout
-from PySide6.QtWebEngineWidgets import QWebEngineView
-from PySide6.QtWebChannel import QWebChannel
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PySide6.QtCore import QObject, Slot, QUrl, Signal
 from PySide6.QtGui import QColor
+
+try:
+    from PySide6.QtWebEngineWidgets import QWebEngineView
+    from PySide6.QtWebChannel import QWebChannel
+    _WEBENGINE_OK = True
+except ImportError:
+    _WEBENGINE_OK = False
 
 from src.core.models.pcb_board import PCBBoard
 from src.utils.colors import LAYER_COLORS
@@ -262,6 +267,27 @@ class PCB3DView(QWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
+        if not _WEBENGINE_OK:
+            lbl = QLabel(
+                "⚠  Widok 3D niedostępny\n\n"
+                "Brakuje modułu PySide6.QtWebEngineWidgets.\n"
+                "Aby włączyć widok 3D, włącz obsługę długich ścieżek w Windows:\n"
+                "  1. Otwórz rejestr: HKLM\\SYSTEM\\CurrentControlSet\\Control\\FileSystem\n"
+                "  2. Ustaw LongPathsEnabled = 1\n"
+                "  lub uruchom w PowerShell (jako admin):\n"
+                "  New-ItemProperty -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem' "
+                "-Name LongPathsEnabled -Value 1 -Force\n"
+                "  Następnie: pip install PySide6[WebEngine]"
+            )
+            lbl.setStyleSheet(
+                "color: #888; background: #0d1117; padding: 40px; "
+                "font-family: Consolas; font-size: 10px;"
+            )
+            lbl.setWordWrap(True)
+            layout.addWidget(lbl)
+            self._bridge = None
+            return
+
         self._bridge = _PCBBridge(self)
         self._channel = QWebChannel(self)
         self._channel.registerObject("bridge", self._bridge)
@@ -272,5 +298,6 @@ class PCB3DView(QWidget):
 
         layout.addWidget(self._view)
 
-    def set_board(self, board: PCBBoard | None) -> None:
-        self._bridge.set_board(board)
+    def set_board(self, board) -> None:
+        if self._bridge:
+            self._bridge.set_board(board)

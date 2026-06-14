@@ -191,7 +191,7 @@ class ComponentsPanel(QWidget):
             "QTableWidget { gridline-color: #2a2a3a; }"
             "QTableWidget::item:alternate { background: #1a1a2a; }"
         )
-        self._table.currentRowChanged.connect(self._on_row_select)
+        self._table.currentCellChanged.connect(lambda row, *_: self._on_row_select(row))
         self._table.doubleClicked.connect(self._on_add_to_bom)
         splitter.addWidget(self._table)
 
