@@ -23,6 +23,7 @@ from src.ui.panels.url_learning_panel import URLLearningPanel
 from src.ui.panels.schematic_panel import SchematicPanel
 from src.ui.panels.cost_panel import CostPanel
 from src.ui.panels.routing_panel import RoutingPanel
+from src.ui.panels.pcb_editor_panel import PCBEditorPanel
 from src.ui.tray import TrayIcon
 
 
@@ -129,9 +130,9 @@ class MainWindow(QMainWindow):
 
         view_menu.addSeparator()
         for i, label in enumerate([
-            "PCB 2D/3D", "BOM", "Kod MCU", "STL/STEP",
+            "PCB 2D/3D", "Edytor PCB", "BOM", "Kod MCU", "STL/STEP",
             "Schemat", "Trasowanie AI", "Koszty",
-            "AI Asystent", "Walidacja", "Chmura", "Nauka AI",
+            "AI Asystent", "Walidacja",
         ]):
             act = QAction(label, self)
             if i < 9:
@@ -189,6 +190,7 @@ class MainWindow(QMainWindow):
         self._tabs.setMovable(True)
 
         self._pcb_panel      = PCBViewerPanel(self._project)
+        self._pcb_editor     = PCBEditorPanel(self._project)
         self._bom_panel      = BOMPanel(self._project)
         self._code_panel     = CodeGenPanel(self._project)
         self._stl_panel      = STLGenPanel(self._project)
@@ -201,21 +203,22 @@ class MainWindow(QMainWindow):
         self._learn_panel    = URLLearningPanel()
 
         self._tabs.addTab(self._pcb_panel,     "🖥  PCB 2D / 3D")       # 0
-        self._tabs.addTab(self._bom_panel,     "📋  BOM")                # 1
-        self._tabs.addTab(self._code_panel,    "💻  Kod MCU")            # 2
-        self._tabs.addTab(self._stl_panel,     "📦  STL / STEP 3D")     # 3
-        self._tabs.addTab(self._sch_panel,     "📐  Schemat")            # 4
-        self._tabs.addTab(self._routing_panel, "🗺  Trasowanie AI")      # 5
-        self._tabs.addTab(self._cost_panel,    "💰  Koszty")             # 6
-        self._tabs.addTab(self._ai_panel,      "🤖  AI Asystent")        # 7
-        self._tabs.addTab(self._valid_panel,   "✅  Walidacja DRC")      # 8
-        self._tabs.addTab(self._cloud_panel,   "☁  Chmura / Git")       # 9
-        self._tabs.addTab(self._learn_panel,   "📚  Nauka AI")           # 10
+        self._tabs.addTab(self._pcb_editor,    "✏  Edytor PCB")         # 1
+        self._tabs.addTab(self._bom_panel,     "📋  BOM")                # 2
+        self._tabs.addTab(self._code_panel,    "💻  Kod MCU")            # 3
+        self._tabs.addTab(self._stl_panel,     "📦  STL / STEP 3D")     # 4
+        self._tabs.addTab(self._sch_panel,     "📐  Schemat")            # 5
+        self._tabs.addTab(self._routing_panel, "🗺  Trasowanie AI")      # 6
+        self._tabs.addTab(self._cost_panel,    "💰  Koszty")             # 7
+        self._tabs.addTab(self._ai_panel,      "🤖  AI Asystent")        # 8
+        self._tabs.addTab(self._valid_panel,   "✅  Walidacja DRC")      # 9
+        self._tabs.addTab(self._cloud_panel,   "☁  Chmura / Git")       # 10
+        self._tabs.addTab(self._learn_panel,   "📚  Nauka AI")           # 11
 
         self.setCentralWidget(self._tabs)
 
         _notify = [
-            self._pcb_panel, self._bom_panel, self._code_panel,
+            self._pcb_panel, self._pcb_editor, self._bom_panel, self._code_panel,
             self._stl_panel, self._sch_panel, self._routing_panel,
             self._cost_panel, self._ai_panel, self._valid_panel, self._cloud_panel,
         ]
