@@ -245,13 +245,36 @@ class _MirrorComp:
         return f"Lustro {self.comp.reference}"
 
 
+class _EditComp:
+    """Undo command for editing component properties."""
+    def __init__(self, comp: Component,
+                 old: dict, new: dict):
+        self.comp = comp
+        self.old  = old
+        self.new  = new
+
+    def _apply(self, data: dict) -> None:
+        for k, v in data.items():
+            setattr(self.comp, k, v)
+
+    def redo(self) -> None:
+        self._apply(self.new)
+
+    def undo(self) -> None:
+        self._apply(self.old)
+
+    def describe(self) -> str:
+        return f"Edytuj właściwości {self.comp.reference}"
+
+
 # ── Main editor widget ────────────────────────────────────────────────────────
 
 class PCBEditor(QWidget):
-    component_selected = Signal(object)   # Component | None
-    board_modified     = Signal()
-    status_message     = Signal(str)
-    undo_state_changed = Signal(bool, bool)  # can_undo, can_redo
+    component_selected        = Signal(object)        # Component | None
+    component_double_clicked  = Signal(object)        # Component (edit request)
+    board_modified            = Signal()
+    status_message            = Signal(str)
+    undo_state_changed        = Signal(bool, bool)    # can_undo, can_redo
 
     # Hit-test radii (in world mm)
     _COMP_HALF = 1.8    # component bounding half-size
@@ -319,6 +342,9 @@ class PCBEditor(QWidget):
         self._layer_visible: dict[str, bool] = {
             layer: True for layer in _LAYER_COLORS
         }
+
+        # DRC violation markers: list of dicts with keys x, y, message
+        self._drc_violations: list[dict] = []
 
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.StrongFocus)
@@ -550,6 +576,7 @@ class PCBEditor(QWidget):
         self._draw_route_preview(p)
         self._draw_zone_preview(p)
         self._draw_pending_comp(p)
+        self._draw_drc_overlay(p)
         self._draw_status_bar(p)
 
     def _draw_grid(self, p: QPainter) -> None:
@@ -830,6 +857,33 @@ class PCBEditor(QWidget):
             p.setFont(QFont("Consolas", max(6, int(self._scale * 1.1))))
             p.drawText(QPointF(cx + cs + 2, cy + 4), c.reference)
 
+    def _draw_drc_overlay(self, p: QPainter) -> None:
+        if not self._drc_violations:
+            return
+        err_color  = QColor("#ff3030")
+        warn_color = QColor("#ffaa00")
+        p.setFont(QFont("Consolas", max(7, int(self._scale * 0.85))))
+        for v in self._drc_violations:
+            wx = v.get("x", 0.0)
+            wy = v.get("y", 0.0)
+            msg = v.get("message", "")
+            severity = v.get("severity", "error")
+            color = err_color if severity != "warning" else warn_color
+            sx, sy = self._w2s(wx, wy)
+            r = max(4.0, self._scale * 0.6)
+            # Draw X marker
+            p.setPen(QPen(color, 2.0))
+            p.setBrush(Qt.NoBrush)
+            p.drawEllipse(QPointF(sx, sy), r, r)
+            p.drawLine(int(sx - r * 0.7), int(sy - r * 0.7),
+                       int(sx + r * 0.7), int(sy + r * 0.7))
+            p.drawLine(int(sx + r * 0.7), int(sy - r * 0.7),
+                       int(sx - r * 0.7), int(sy + r * 0.7))
+            # Tooltip text (only when zoomed in enough)
+            if self._scale > 6.0 and msg:
+                p.setPen(color)
+                p.drawText(QPointF(sx + r + 2, sy + 4), msg[:40])
+
     def _draw_status_bar(self, p: QPainter) -> None:
         wx, wy = self._cursor_w
         mode_names = {
@@ -938,6 +992,13 @@ class PCBEditor(QWidget):
         self.update()
 
     def mouseDoubleClickEvent(self, e: QMouseEvent) -> None:
+        if e.button() == Qt.LeftButton and self._mode == EditorMode.SELECT:
+            sx, sy = e.position().x(), e.position().y()
+            wx, wy = self._s2w(sx, sy)
+            comp = self._comp_at(wx, wy)
+            if comp:
+                self.component_double_clicked.emit(comp)
+                return
         if e.button() == Qt.LeftButton and self._mode == EditorMode.ZONE and self._zone_pts:
             sx, sy = e.position().x(), e.position().y()
             wx, wy = self._s2w(sx, sy)
@@ -1274,4 +1335,23 @@ class PCBEditor(QWidget):
 
     def clear_highlight(self) -> None:
         self._highlighted_net = ""
+        self.update()
+
+    # ── DRC overlay ───────────────────────────────────────────────────────────
+
+    def set_drc_violations(self, violations: list[dict]) -> None:
+        """Set DRC violation markers. Each dict must have 'x', 'y', 'message'."""
+        self._drc_violations = violations
+        self.update()
+
+    def clear_drc_violations(self) -> None:
+        self._drc_violations = []
+        self.update()
+
+    # ── Component property editing ────────────────────────────────────────────
+
+    def apply_comp_edit(self, comp: Component, new_props: dict) -> None:
+        """Apply property changes to a component via undo stack."""
+        old = {k: getattr(comp, k) for k in new_props}
+        self._do(_EditComp(comp, old, new_props))
         self.update()

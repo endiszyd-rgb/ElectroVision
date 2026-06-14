@@ -121,6 +121,7 @@ class PCBEditorPanel(QWidget):
         ec_layout.setContentsMargins(2, 2, 2, 2)
 
         self._editor.component_selected.connect(self._on_comp_selected)
+        self._editor.component_double_clicked.connect(self._on_comp_edit)
         self._editor.board_modified.connect(self._on_board_modified)
         self._editor.status_message.connect(self._show_status)
         self._editor.undo_state_changed.connect(self._on_undo_state)
@@ -801,3 +802,33 @@ class PCBEditorPanel(QWidget):
             QMessageBox.information(self, "Eksport", f"Zapisano:\n{path}")
         except Exception as e:
             QMessageBox.critical(self, "Błąd eksportu", str(e))
+
+    # ── Component Properties Dialog ───────────────────────────────────────────
+
+    def _on_comp_edit(self, comp: "Component") -> None:
+        """Open Component Properties Dialog on double-click."""
+        from src.ui.dialogs.component_props_dialog import ComponentPropsDialog
+        dlg = ComponentPropsDialog(comp, parent=self)
+        dlg.props_changed.connect(self._apply_comp_edit)
+        dlg.exec()
+
+    def _apply_comp_edit(self, comp: "Component", new_props: dict) -> None:
+        self._editor.apply_comp_edit(comp, new_props)
+        self._on_comp_selected(comp)   # refresh properties panel
+
+    # ── Net highlight (from NetInspector) ─────────────────────────────────────
+
+    def highlight_net(self, net_name: str) -> None:
+        self._editor.highlight_net(net_name)
+
+    # ── DRC overlay (called from ValidationPanel / RoutingPanel) ─────────────
+
+    def set_drc_violations(self, violations: list) -> None:
+        """Show DRC violation markers on the canvas."""
+        self._editor.set_drc_violations(violations)
+        n = len(violations)
+        if n:
+            self._show_status(f"DRC: {n} błąd(ów) — zaznaczono na płytce (czerwone X)")
+        else:
+            self._editor.clear_drc_violations()
+            self._show_status("DRC: brak błędów")

@@ -1,15 +1,19 @@
 """Validation panel — PCB DRC + STL checks + AI explanations."""
+import re
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel,
     QTableWidget, QTableWidgetItem, QGroupBox, QProgressBar,
     QHeaderView, QTextEdit, QTabWidget, QFileDialog, QSplitter,
     QCheckBox
 )
-from PySide6.QtCore import Qt, Slot, QThread
+from PySide6.QtCore import Qt, Slot, QThread, Signal
 from PySide6.QtGui import QColor, QFont
 
 from src.core.project import Project
 from src.ai.bridge import AIBridge
+
+_POS_RE = re.compile(r"\(?([-\d.]+)[,\s]+([-\d.]+)\)?")
 
 
 class _ValidateThread(QThread):
@@ -40,6 +44,8 @@ class _ValidateThread(QThread):
 
 
 class ValidationPanel(QWidget):
+    drc_violations_ready = Signal(list)   # list of {x, y, message, severity}
+
     SEVERITY_COLORS = {
         "error":   QColor(220, 60,  60),
         "warning": QColor(220, 180, 50),
@@ -218,6 +224,20 @@ class ValidationPanel(QWidget):
                 self._pcb_table.setItem(row, col, item)
         status_color = "🔴" if errors else ("🟡" if warnings else "🟢")
         self._summary_label.setText(f"{status_color} PCB: {errors}E {warnings}W {infos}I")
+
+        # Build overlay markers for PCB editor
+        markers = []
+        for issue in issues:
+            pos = issue.get("position", "")
+            m = _POS_RE.search(pos)
+            if m:
+                markers.append({
+                    "x": float(m.group(1)),
+                    "y": float(m.group(2)),
+                    "message": issue.get("message", ""),
+                    "severity": issue.get("severity", "error"),
+                })
+        self.drc_violations_ready.emit(markers)
 
     @Slot(list)
     def _on_stl_done(self, issues: list) -> None:

@@ -284,6 +284,9 @@ class MainWindow(QMainWindow):
         # Connect NetInspector → PCBEditorPanel for highlight
         self._net_panel.net_highlight_requested.connect(self._on_net_highlight)
 
+        # Connect ValidationPanel DRC results → PCBEditorPanel overlay
+        self._valid_panel.drc_violations_ready.connect(self._pcb_editor.set_drc_violations)
+
     def _build_status(self) -> None:
         self._status_label = QLabel("Brak projektu")
         self.statusBar().addPermanentWidget(self._status_label)
