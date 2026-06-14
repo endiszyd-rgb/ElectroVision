@@ -12,6 +12,7 @@ from PySide6.QtGui import QAction, QKeySequence, QIcon, QCloseEvent
 
 from src.core.project import Project
 from src.core.parsers.kicad_parser import parse_kicad_pcb
+from src.core.project_io import save_project, load_project, add_recent, load_recent, clear_missing_recent
 from src.ui.panels.pcb_viewer_panel import PCBViewerPanel
 from src.ui.panels.bom_panel import BOMPanel
 from src.ui.panels.code_gen_panel import CodeGenPanel
@@ -24,6 +25,8 @@ from src.ui.panels.schematic_panel import SchematicPanel
 from src.ui.panels.cost_panel import CostPanel
 from src.ui.panels.routing_panel import RoutingPanel
 from src.ui.panels.pcb_editor_panel import PCBEditorPanel
+from src.ui.panels.components_panel import ComponentsPanel
+from src.ui.panels.net_inspector_panel import NetInspectorPanel
 from src.ui.tray import TrayIcon
 
 
@@ -80,6 +83,26 @@ class MainWindow(QMainWindow):
 
         file_menu.addSeparator()
 
+        act_save = QAction("Zapisz projekt (.evproj)", self)
+        act_save.setShortcut(QKeySequence.Save)
+        act_save.triggered.connect(self._on_save)
+        file_menu.addAction(act_save)
+
+        act_save_as = QAction("Zapisz projekt jako…", self)
+        act_save_as.setShortcut(QKeySequence("Ctrl+Shift+S"))
+        act_save_as.triggered.connect(self._on_save_as)
+        file_menu.addAction(act_save_as)
+
+        act_open_ev = QAction("Otwórz projekt (.evproj)…", self)
+        act_open_ev.setShortcut(QKeySequence("Ctrl+Shift+O"))
+        act_open_ev.triggered.connect(self._on_open_evproj)
+        file_menu.addAction(act_open_ev)
+
+        self._recent_menu = file_menu.addMenu("Ostatnie projekty")
+        self._recent_menu.aboutToShow.connect(self._rebuild_recent_menu)
+
+        file_menu.addSeparator()
+
         act_import = QAction("Importuj KiCad (.kicad_pcb)…", self)
         act_import.setShortcut(QKeySequence("Ctrl+O"))
         act_import.triggered.connect(self._on_import_kicad)
@@ -107,6 +130,13 @@ class MainWindow(QMainWindow):
         act_pdf_full.triggered.connect(self._export_pdf_full)
         export_menu.addAction(act_pdf_full)
 
+        export_menu.addSeparator()
+
+        act_gerber = QAction("Gerber + Drill (produkcja)", self)
+        act_gerber.setShortcut(QKeySequence("Ctrl+G"))
+        act_gerber.triggered.connect(self._export_gerber)
+        export_menu.addAction(act_gerber)
+
         file_menu.addSeparator()
 
         act_tray = QAction("Minimalizuj do traya przy zamknięciu", self)
@@ -132,7 +162,7 @@ class MainWindow(QMainWindow):
         for i, label in enumerate([
             "PCB 2D/3D", "Edytor PCB", "BOM", "Kod MCU", "STL/STEP",
             "Schemat", "Trasowanie AI", "Koszty",
-            "AI Asystent", "Walidacja",
+            "Komponenty", "Sieci", "AI Asystent", "Walidacja",
         ]):
             act = QAction(label, self)
             if i < 9:
@@ -201,6 +231,8 @@ class MainWindow(QMainWindow):
         self._valid_panel    = ValidationPanel(self._project)
         self._cloud_panel    = CloudPanel(self._project)
         self._learn_panel    = URLLearningPanel()
+        self._comp_panel     = ComponentsPanel(self._project)
+        self._net_panel      = NetInspectorPanel(self._project)
 
         self._tabs.addTab(self._pcb_panel,     "🖥  PCB 2D / 3D")       # 0
         self._tabs.addTab(self._pcb_editor,    "✏  Edytor PCB")         # 1
@@ -210,10 +242,12 @@ class MainWindow(QMainWindow):
         self._tabs.addTab(self._sch_panel,     "📐  Schemat")            # 5
         self._tabs.addTab(self._routing_panel, "🗺  Trasowanie AI")      # 6
         self._tabs.addTab(self._cost_panel,    "💰  Koszty")             # 7
-        self._tabs.addTab(self._ai_panel,      "🤖  AI Asystent")        # 8
-        self._tabs.addTab(self._valid_panel,   "✅  Walidacja DRC")      # 9
-        self._tabs.addTab(self._cloud_panel,   "☁  Chmura / Git")       # 10
-        self._tabs.addTab(self._learn_panel,   "📚  Nauka AI")           # 11
+        self._tabs.addTab(self._comp_panel,    "🔍  Komponenty")         # 8
+        self._tabs.addTab(self._net_panel,     "🔌  Sieci")              # 9
+        self._tabs.addTab(self._ai_panel,      "🤖  AI Asystent")        # 10
+        self._tabs.addTab(self._valid_panel,   "✅  Walidacja DRC")      # 11
+        self._tabs.addTab(self._cloud_panel,   "☁  Chmura / Git")       # 12
+        self._tabs.addTab(self._learn_panel,   "📚  Nauka AI")           # 13
 
         self.setCentralWidget(self._tabs)
 
@@ -221,9 +255,16 @@ class MainWindow(QMainWindow):
             self._pcb_panel, self._pcb_editor, self._bom_panel, self._code_panel,
             self._stl_panel, self._sch_panel, self._routing_panel,
             self._cost_panel, self._ai_panel, self._valid_panel, self._cloud_panel,
+            self._comp_panel, self._net_panel,
         ]
         for panel in _notify:
             self.project_changed.connect(panel.on_project_changed)
+
+        # Connect ComponentsPanel → PCBEditorPanel for place-from-DB
+        self._comp_panel.component_add_requested.connect(self._on_comp_add_requested)
+
+        # Connect NetInspector → PCBEditorPanel for highlight
+        self._net_panel.net_highlight_requested.connect(self._on_net_highlight)
 
     def _build_status(self) -> None:
         self._status_label = QLabel("Brak projektu")
@@ -241,6 +282,37 @@ class MainWindow(QMainWindow):
         self._project = project
         self._update_title()
         self.project_changed.emit(project)
+
+    # ── Cross-panel signals ───────────────────────────────────────────────────
+
+    def _on_comp_add_requested(self, comp) -> None:
+        """Route 'place component' from ComponentsPanel → PCBEditorPanel."""
+        self._tabs.setCurrentWidget(self._pcb_editor)
+        self._pcb_editor._start_place(comp.reference, comp.value, comp.footprint)
+
+    def _on_net_highlight(self, net_name: str) -> None:
+        """Pass net highlight request to PCB editor."""
+        if hasattr(self._pcb_editor, "highlight_net"):
+            self._pcb_editor.highlight_net(net_name)
+
+    # ── Recent menu ───────────────────────────────────────────────────────────
+
+    def _rebuild_recent_menu(self) -> None:
+        self._recent_menu.clear()
+        recent = clear_missing_recent()
+        if not recent:
+            act = QAction("(brak)", self)
+            act.setEnabled(False)
+            self._recent_menu.addAction(act)
+            return
+        for path in recent:
+            act = QAction(path, self)
+            act.triggered.connect(lambda _, p=path: self._open_evproj(p))
+            self._recent_menu.addAction(act)
+        self._recent_menu.addSeparator()
+        act_clear = QAction("Wyczyść listę", self)
+        act_clear.triggered.connect(lambda: clear_missing_recent())
+        self._recent_menu.addAction(act_clear)
 
     # ── File actions ─────────────────────────────────────────────────────────
 
@@ -293,6 +365,61 @@ class MainWindow(QMainWindow):
             self._tabs.setCurrentWidget(self._sch_panel)
             self._sch_panel._load_sch(path)
 
+    def _on_save(self) -> None:
+        if not self._project.board:
+            QMessageBox.warning(self, "Brak projektu", "Najpierw utwórz lub załaduj projekt PCB.")
+            return
+        existing = self._project.save_path_str()
+        if existing and existing.endswith(".evproj"):
+            self._do_save(existing)
+        else:
+            self._on_save_as()
+
+    def _on_save_as(self) -> None:
+        if not self._project.board:
+            QMessageBox.warning(self, "Brak projektu", "Najpierw utwórz lub załaduj projekt PCB.")
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Zapisz projekt", f"{self._project.name}.evproj",
+            "ElectroVision Project (*.evproj)"
+        )
+        if path:
+            self._do_save(path)
+
+    def _do_save(self, path: str) -> None:
+        try:
+            save_project(self._project, path)
+            add_recent(path)
+            self._project = Project(
+                name=self._project.name,
+                path=Path(path),
+                board=self._project.board,
+            )
+            self._update_title()
+            self.statusBar().showMessage(f"Zapisano: {path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Błąd zapisu", str(e))
+
+    def _on_open_evproj(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Otwórz projekt ElectroVision", "",
+            "ElectroVision Project (*.evproj);;Wszystkie pliki (*)"
+        )
+        if path:
+            self._open_evproj(path)
+
+    def _open_evproj(self, path: str) -> None:
+        try:
+            project = load_project(path)
+            add_recent(path)
+            self._set_project(project)
+            self.statusBar().showMessage(
+                f"Załadowano: {Path(path).name}  |  "
+                f"Komponentów: {len(project.board.components) if project.board else 0}"
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Błąd odczytu", str(e))
+
     # ── PDF export ────────────────────────────────────────────────────────────
 
     def _check_board(self) -> bool:
@@ -344,6 +471,27 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(self, "Błąd PDF", str(e))
 
+    def _export_gerber(self) -> None:
+        if not self._check_board():
+            return
+        out_dir = QFileDialog.getExistingDirectory(
+            self, "Wybierz folder dla plików Gerber",
+            str(Path.home()),
+        )
+        if not out_dir:
+            return
+        try:
+            from src.generators.gerber_generator import GerberGenerator
+            gen = GerberGenerator(self._project.board, self._project.name)
+            files = gen.export_all(out_dir)
+            QMessageBox.information(
+                self, "Gerber",
+                f"Wygenerowano {len(files)} plików w:\n{out_dir}\n\n"
+                + "\n".join(Path(f).name for f in files)
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Błąd Gerber", str(e))
+
     # ── View actions ─────────────────────────────────────────────────────────
 
     def _on_fullscreen(self, checked: bool) -> None:
@@ -371,12 +519,22 @@ class MainWindow(QMainWindow):
             "<table>"
             "<tr><td><b>Ctrl+N</b></td><td>Nowy projekt</td></tr>"
             "<tr><td><b>Ctrl+Shift+N</b></td><td>Nowy z szablonu</td></tr>"
+            "<tr><td><b>Ctrl+S</b></td><td>Zapisz projekt (.evproj)</td></tr>"
+            "<tr><td><b>Ctrl+Shift+S</b></td><td>Zapisz projekt jako…</td></tr>"
+            "<tr><td><b>Ctrl+Shift+O</b></td><td>Otwórz projekt (.evproj)</td></tr>"
             "<tr><td><b>Ctrl+O</b></td><td>Importuj .kicad_pcb</td></tr>"
+            "<tr><td><b>Ctrl+G</b></td><td>Eksportuj Gerber + Drill</td></tr>"
             "<tr><td><b>Ctrl+P</b></td><td>Eksportuj pełny raport PDF</td></tr>"
             "<tr><td><b>Alt+1..9</b></td><td>Przełącz zakładki 1-9</td></tr>"
             "<tr><td><b>F11</b></td><td>Pełny ekran</td></tr>"
-            "<tr><td><b>F (w widoku)</b></td><td>Dopasuj widok do ekranu</td></tr>"
-            "<tr><td><b>Scroll</b></td><td>Zoom w widokach 2D/3D</td></tr>"
+            "<tr><td><b>F (w edytorze PCB)</b></td><td>Dopasuj widok</td></tr>"
+            "<tr><td><b>S/R/V/X (edytor PCB)</b></td><td>Tryb: Select/Route/Via/Delete</td></tr>"
+            "<tr><td><b>Space (edytor PCB)</b></td><td>Obróć komponent o 90°</td></tr>"
+            "<tr><td><b>M (edytor PCB)</b></td><td>Lustro komponentu</td></tr>"
+            "<tr><td><b>Ctrl+Z / Ctrl+Y</b></td><td>Cofnij / Ponów</td></tr>"
+            "<tr><td><b>Enter (edytor PCB)</b></td><td>Zakończ trasowanie</td></tr>"
+            "<tr><td><b>Esc (edytor PCB)</b></td><td>Anuluj akcję</td></tr>"
+            "<tr><td><b>Scroll</b></td><td>Zoom w widokach 2D/3D/Edytor</td></tr>"
             "<tr><td><b>PPM / Środkowy</b></td><td>Przesuń widok</td></tr>"
             "</table>"
         )

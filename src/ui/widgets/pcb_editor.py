@@ -178,6 +178,38 @@ class _AddComp:
         return f"Dodaj {self.comp.reference}"
 
 
+class _RotateComp:
+    def __init__(self, comp: Component, angle: float):
+        self.comp = comp
+        self.angle = angle
+
+    def redo(self) -> None:
+        self.comp.rotation = (self.comp.rotation + self.angle) % 360.0
+
+    def undo(self) -> None:
+        self.comp.rotation = (self.comp.rotation - self.angle) % 360.0
+
+    def describe(self) -> str:
+        return f"Obróć {self.comp.reference} o {self.angle}°"
+
+
+class _MirrorComp:
+    _FLIP = {"F.Cu": "B.Cu", "B.Cu": "F.Cu"}
+
+    def __init__(self, comp: Component):
+        self.comp = comp
+
+    def redo(self) -> None:
+        self.comp.layer = self._FLIP.get(self.comp.layer or "F.Cu", "F.Cu")
+        self.comp.rotation = (180.0 - self.comp.rotation) % 360.0
+
+    def undo(self) -> None:
+        self.redo()  # mirror is its own inverse
+
+    def describe(self) -> str:
+        return f"Lustro {self.comp.reference}"
+
+
 # ── Main editor widget ────────────────────────────────────────────────────────
 
 class PCBEditor(QWidget):
@@ -234,6 +266,9 @@ class PCBEditor(QWidget):
         # Undo / Redo
         self._undo_stack: list = []
         self._redo_stack: list = []
+
+        # Net highlight (set by NetInspector)
+        self._highlighted_net: str = ""
 
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.StrongFocus)
@@ -466,14 +501,21 @@ class PCBEditor(QWidget):
             p.drawLine(int(ax), int(ay), int(bx), int(by))
 
     def _draw_traces(self, p: QPainter) -> None:
+        hn = self._highlighted_net
         for t in self._board.traces:
             is_del_hover = (self._mode == EditorMode.DELETE and self._hover_del is t)
             is_sel = (self._sel_trace is t)
+            is_highlighted = bool(hn and t.net_name == hn)
+            is_dimmed = bool(hn and t.net_name != hn)
             base_c = QColor(_LAYER_COLORS.get(t.layer, "#888"))
             if is_del_hover:
                 color = _DEL_HOVER
             elif is_sel:
                 color = _SEL_COLOR
+            elif is_highlighted:
+                color = QColor("#ffff40")
+            elif is_dimmed:
+                color = QColor(base_c.red(), base_c.green(), base_c.blue(), 60)
             else:
                 color = base_c
             pw = max(1.0, t.width * self._scale)
@@ -498,21 +540,43 @@ class PCBEditor(QWidget):
 
     def _draw_components(self, p: QPainter) -> None:
         cs = max(2.0, self._COMP_HALF * self._scale)
+        hn = self._highlighted_net
         for c in self._board.components:
             is_del_hover = (self._mode == EditorMode.DELETE and self._hover_del is c)
             is_sel = (self._sel_comp is c)
+            is_on_net = bool(hn and any(pd.net_name == hn for pd in c.pads))
             border_c = _DEL_HOVER if is_del_hover else (
                 _SEL_COLOR if is_sel else (
-                    _COMP_BORDER_B if c.layer == "B.Cu" else _COMP_BORDER_F
+                    QColor("#ffff40") if is_on_net else (
+                        _COMP_BORDER_B if c.layer == "B.Cu" else _COMP_BORDER_F
+                    )
                 )
             )
             cx, cy = self._w2s(c.x, c.y)
             fill = QColor("#2a1a1a") if is_del_hover else (
-                QColor("#2a2a00") if is_sel else _COMP_FILL
+                QColor("#2a2a00") if is_sel else (
+                    QColor("#2a2a00") if is_on_net else _COMP_FILL
+                )
             )
+            # Save/restore for rotation
+            p.save()
+            p.translate(cx, cy)
+            rot = getattr(c, "rotation", 0.0) or 0.0
+            if rot:
+                p.rotate(rot)
             p.setBrush(QBrush(fill))
             p.setPen(QPen(border_c, max(1.0, self._scale * 0.08)))
-            p.drawRect(QRectF(cx - cs, cy - cs, cs*2, cs*2))
+            p.drawRect(QRectF(-cs, -cs, cs*2, cs*2))
+            # Pin-1 indicator (small triangle at top-left)
+            if self._scale > 4.0:
+                p.setBrush(border_c)
+                p.setPen(Qt.NoPen)
+                tri_s = cs * 0.35
+                tri = [QPointF(-cs, -cs), QPointF(-cs + tri_s, -cs),
+                       QPointF(-cs, -cs + tri_s)]
+                from PySide6.QtGui import QPolygonF
+                p.drawPolygon(QPolygonF(tri))
+            p.restore()
 
             if self._scale > 3.0:
                 p.setPen(border_c)
@@ -829,6 +893,12 @@ class PCBEditor(QWidget):
             elif e.key() == Qt.Key_Y:
                 self.redo()
 
+        elif e.key() == Qt.Key_Space:
+            self._rotate_selected(90.0)
+
+        elif e.key() == Qt.Key_M:
+            self._mirror_selected()
+
         elif e.key() == Qt.Key_S:
             self.set_mode(EditorMode.SELECT)
         elif e.key() == Qt.Key_R:
@@ -837,3 +907,118 @@ class PCBEditor(QWidget):
             self.set_mode(EditorMode.VIA)
         elif e.key() == Qt.Key_X:
             self.set_mode(EditorMode.DELETE)
+
+    # ── Rotate / Mirror ───────────────────────────────────────────────────────
+
+    def _rotate_selected(self, angle_deg: float = 90.0) -> None:
+        if self._sel_comp and self._board:
+            self._do(_RotateComp(self._sel_comp, angle_deg))
+            self.update()
+
+    def _mirror_selected(self) -> None:
+        if self._sel_comp and self._board:
+            self._do(_MirrorComp(self._sel_comp))
+            self.update()
+
+    def rotate_component(self, comp: Component, angle_deg: float = 90.0) -> None:
+        """Public: rotate an arbitrary component and record undo."""
+        if self._board and comp in self._board.components:
+            self._do(_RotateComp(comp, angle_deg))
+            self.update()
+
+    def mirror_component(self, comp: Component) -> None:
+        """Public: mirror an arbitrary component and record undo."""
+        if self._board and comp in self._board.components:
+            self._do(_MirrorComp(comp))
+            self.update()
+
+    # ── Alignment tools ───────────────────────────────────────────────────────
+
+    def align_selected(self, mode: str, targets: "list[Component]|None" = None) -> None:
+        """Align components relative to the currently selected one.
+
+        mode: 'left', 'right', 'top', 'bottom', 'center_h', 'center_v'
+        targets: list of components to align; defaults to all board components
+                 except the anchor.
+        """
+        if not self._sel_comp or not self._board:
+            return
+        anchor = self._sel_comp
+        comps = targets if targets is not None else [
+            c for c in self._board.components if c is not anchor
+        ]
+        if not comps:
+            return
+        for c in comps:
+            ox, oy = c.x, c.y
+            if mode == "left":
+                c.x = anchor.x
+            elif mode == "right":
+                c.x = anchor.x
+            elif mode == "top":
+                c.y = anchor.y
+            elif mode == "bottom":
+                c.y = anchor.y
+            elif mode == "center_h":
+                c.x = anchor.x
+            elif mode == "center_v":
+                c.y = anchor.y
+            if (ox, oy) != (c.x, c.y):
+                cmd = _MoveComp(c, ox, oy, c.x, c.y)
+                self._undo_stack.append(cmd)
+                self._redo_stack.clear()
+        self._emit_undo_state()
+        self.board_modified.emit()
+        self.status_message.emit(f"Wyrównano {len(comps)} komponent(ów) → {mode}")
+        self.update()
+
+    def distribute_h(self) -> None:
+        """Distribute selected-layer components evenly horizontally."""
+        if not self._board or len(self._board.components) < 3:
+            return
+        comps = sorted(self._board.components, key=lambda c: c.x)
+        x_min, x_max = comps[0].x, comps[-1].x
+        if abs(x_max - x_min) < 0.01:
+            return
+        step = (x_max - x_min) / (len(comps) - 1)
+        for i, c in enumerate(comps[1:-1], start=1):
+            ox, oy = c.x, c.y
+            c.x = x_min + step * i
+            cmd = _MoveComp(c, ox, oy, c.x, oy)
+            self._undo_stack.append(cmd)
+        self._redo_stack.clear()
+        self._emit_undo_state()
+        self.board_modified.emit()
+        self.status_message.emit("Rozmieszczono równomiernie w poziomie")
+        self.update()
+
+    def distribute_v(self) -> None:
+        """Distribute selected-layer components evenly vertically."""
+        if not self._board or len(self._board.components) < 3:
+            return
+        comps = sorted(self._board.components, key=lambda c: c.y)
+        y_min, y_max = comps[0].y, comps[-1].y
+        if abs(y_max - y_min) < 0.01:
+            return
+        step = (y_max - y_min) / (len(comps) - 1)
+        for i, c in enumerate(comps[1:-1], start=1):
+            ox, oy = c.x, c.y
+            c.y = y_min + step * i
+            cmd = _MoveComp(c, ox, oy, ox, c.y)
+            self._undo_stack.append(cmd)
+        self._redo_stack.clear()
+        self._emit_undo_state()
+        self.board_modified.emit()
+        self.status_message.emit("Rozmieszczono równomiernie w pionie")
+        self.update()
+
+    # ── Net highlight ─────────────────────────────────────────────────────────
+
+    def highlight_net(self, net_name: str) -> None:
+        """Visually highlight all traces and components belonging to net_name."""
+        self._highlighted_net = net_name
+        self.update()
+
+    def clear_highlight(self) -> None:
+        self._highlighted_net = ""
+        self.update()

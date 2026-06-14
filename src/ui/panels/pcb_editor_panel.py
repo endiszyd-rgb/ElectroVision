@@ -125,7 +125,7 @@ class PCBEditorPanel(QWidget):
         self._editor.undo_state_changed.connect(self._on_undo_state)
         ec_layout.addWidget(self._editor, 1)
 
-        self._status_bar = QLabel("Gotowy  |  S=Wybierz  R=Trasuj  V=Przelotka  X=Usuń  F=Dopasuj  Scroll=Zoom")
+        self._status_bar = QLabel("Gotowy  |  S=Wybierz  R=Trasuj  V=Przelotka  X=Usuń  Space=Obróć  M=Lustro  F=Dopasuj  Ctrl+Z/Y=Cofnij/Ponów")
         self._status_bar.setStyleSheet(
             "background: #0d1117; color: #666; font-size: 9px; "
             "font-family: Consolas; padding: 2px 6px;"
@@ -225,6 +225,43 @@ class PCBEditorPanel(QWidget):
         btn_delete_sel.clicked.connect(self._editor.delete_selected)
         btn_delete_sel.setShortcut(QKeySequence("Delete"))
         tb.addWidget(btn_delete_sel)
+
+        tb.addSeparator()
+
+        btn_rot90 = QPushButton("↻ Obróć 90° (Space)")
+        btn_rot90.clicked.connect(lambda: self._editor._rotate_selected(90.0))
+        tb.addWidget(btn_rot90)
+
+        btn_mirror = QPushButton("⇌ Lustro (M)")
+        btn_mirror.clicked.connect(self._editor._mirror_selected)
+        tb.addWidget(btn_mirror)
+
+        tb.addSeparator()
+
+        btn_align_l = QPushButton("⊢ Lewo")
+        btn_align_l.setToolTip("Wyrównaj do lewej krawędzi wybranego")
+        btn_align_l.clicked.connect(lambda: self._editor.align_selected("left"))
+        tb.addWidget(btn_align_l)
+
+        btn_align_ch = QPushButton("⊥ Centrum H")
+        btn_align_ch.setToolTip("Wyrównaj centra w poziomie")
+        btn_align_ch.clicked.connect(lambda: self._editor.align_selected("center_h"))
+        tb.addWidget(btn_align_ch)
+
+        btn_align_t = QPushButton("⊤ Góra")
+        btn_align_t.setToolTip("Wyrównaj do górnej krawędzi wybranego")
+        btn_align_t.clicked.connect(lambda: self._editor.align_selected("top"))
+        tb.addWidget(btn_align_t)
+
+        btn_dist_h = QPushButton("↔ Roz. H")
+        btn_dist_h.setToolTip("Rozmieść równomiernie w poziomie")
+        btn_dist_h.clicked.connect(self._editor.distribute_h)
+        tb.addWidget(btn_dist_h)
+
+        btn_dist_v = QPushButton("↕ Roz. V")
+        btn_dist_v.setToolTip("Rozmieść równomiernie w pionie")
+        btn_dist_v.clicked.connect(self._editor.distribute_v)
+        tb.addWidget(btn_dist_v)
 
         tb.addSeparator()
 
