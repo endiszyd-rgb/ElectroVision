@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Slot, Signal
 from PySide6.QtGui import QFont, QColor, QIcon, QKeySequence, QAction
+from PySide6.QtWidgets import QShortcut
 
 from src.core.project import Project
 from src.core.models.component import Component
@@ -124,6 +125,10 @@ class PCBEditorPanel(QWidget):
         self._editor.status_message.connect(self._show_status)
         self._editor.undo_state_changed.connect(self._on_undo_state)
         ec_layout.addWidget(self._editor, 1)
+
+        # Ctrl+F — focus find tab
+        sc_find = QShortcut(QKeySequence("Ctrl+F"), self)
+        sc_find.activated.connect(self._focus_find)
 
         self._status_bar = QLabel("Gotowy  |  S=Wybierz  R=Trasuj  V=Przelotka  X=Usuń  Z=Strefa  N=Ratsnest  Space=Obróć  M=Lustro  F=Dopasuj  Enter=Zamknij strefę  Ctrl+Z/Y=Cofnij/Ponów")
         self._status_bar.setStyleSheet(
@@ -488,7 +493,114 @@ class PCBEditorPanel(QWidget):
         stat_layout.addStretch()
         tabs.addTab(stat_tab, "Statystyki")
 
+        # Tab 4: layer visibility
+        tabs.addTab(self._build_layer_tab(), "Warstwy")
+
+        # Tab 5: find component
+        tabs.addTab(self._build_find_tab(), "Szukaj")
+
         layout.addWidget(tabs)
+        return w
+
+    def _build_layer_tab(self) -> QWidget:
+        from src.ui.widgets.pcb_editor import _LAYER_COLORS
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        lay.setContentsMargins(4, 4, 4, 4)
+        lay.setSpacing(2)
+
+        lbl = QLabel("Widocznosc warstw:")
+        lbl.setStyleSheet("font-weight:bold; color:#4a90d9; font-size:10px;")
+        lay.addWidget(lbl)
+
+        self._layer_checks: dict[str, QCheckBox] = {}
+        for layer, color_hex in _LAYER_COLORS.items():
+            row = QWidget()
+            rl = QHBoxLayout(row)
+            rl.setContentsMargins(0, 0, 0, 0)
+            rl.setSpacing(4)
+
+            dot = QFrame()
+            dot.setFixedSize(12, 12)
+            dot.setStyleSheet(
+                f"background:{color_hex}; border-radius:2px; border:1px solid #444;"
+            )
+            rl.addWidget(dot)
+
+            cb = QCheckBox(layer)
+            cb.setChecked(True)
+            cb.setFont(QFont("Consolas", 8))
+            layer_name = layer
+            cb.toggled.connect(
+                lambda checked, ln=layer_name: self._editor.set_layer_visible(ln, checked)
+            )
+            self._layer_checks[layer] = cb
+            rl.addWidget(cb)
+            rl.addStretch()
+            lay.addWidget(row)
+
+        lay.addSpacing(6)
+        row_btns = QHBoxLayout()
+        btn_all = QPushButton("Wszystkie")
+        btn_all.setFixedHeight(22)
+        btn_all.clicked.connect(self._layers_show_all)
+        btn_cu = QPushButton("Tylko Cu")
+        btn_cu.setFixedHeight(22)
+        btn_cu.clicked.connect(self._layers_only_cu)
+        row_btns.addWidget(btn_all)
+        row_btns.addWidget(btn_cu)
+        lay.addLayout(row_btns)
+        lay.addStretch()
+        return w
+
+    def _layers_show_all(self) -> None:
+        for layer, cb in self._layer_checks.items():
+            cb.setChecked(True)
+
+    def _layers_only_cu(self) -> None:
+        for layer, cb in self._layer_checks.items():
+            cb.setChecked("Cu" in layer or layer == "Edge.Cuts")
+
+    def _build_find_tab(self) -> QWidget:
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        lay.setContentsMargins(4, 4, 4, 4)
+
+        lbl = QLabel("Znajdz komponent (Ctrl+F):")
+        lbl.setStyleSheet("font-weight:bold; color:#4a90d9; font-size:10px;")
+        lay.addWidget(lbl)
+
+        self._find_edit = QLineEdit()
+        self._find_edit.setPlaceholderText("np. U1, R3, C12")
+        self._find_edit.returnPressed.connect(self._do_find)
+        lay.addWidget(self._find_edit)
+
+        btn_find = QPushButton("Znajdz i centruj")
+        btn_find.clicked.connect(self._do_find)
+        btn_find.setStyleSheet("background:#1a4a8f; color:white;")
+        lay.addWidget(btn_find)
+
+        self._find_result = QLabel("")
+        self._find_result.setWordWrap(True)
+        self._find_result.setStyleSheet("font-size:9px; color:#aaa;")
+        lay.addWidget(self._find_result)
+
+        lay.addSpacing(8)
+        lbl2 = QLabel("Lista komponentow:")
+        lbl2.setStyleSheet("color:#666; font-size:9px;")
+        lay.addWidget(lbl2)
+
+        from PySide6.QtWidgets import QListWidget
+        self._comp_list = QListWidget()
+        self._comp_list.setFont(QFont("Consolas", 8))
+        self._comp_list.setStyleSheet(
+            "QListWidget { background:#0d1117; border:1px solid #2a2a3a; }"
+            "QListWidget::item:selected { background:#1a4a8f; }"
+        )
+        self._comp_list.itemDoubleClicked.connect(
+            lambda item: self._do_find_text(item.text().split()[0])
+        )
+        lay.addWidget(self._comp_list, 1)
         return w
 
     # ── Slots ─────────────────────────────────────────────────────────────────
@@ -499,6 +611,41 @@ class PCBEditorPanel(QWidget):
         self._editor.set_board(project.board)
         self._update_stats()
         self._populate_zone_nets()
+        self._populate_comp_list()
+
+    def _populate_comp_list(self) -> None:
+        self._comp_list.clear()
+        board = self._project.board
+        if not board:
+            return
+        for c in sorted(board.components, key=lambda x: x.reference):
+            self._comp_list.addItem(f"{c.reference}  {c.value}")
+
+    def _focus_find(self) -> None:
+        # Switch properties tab to "Szukaj" and focus the input
+        prop_widget = self._find_edit.parent()
+        tabs = prop_widget.parent()
+        if hasattr(tabs, 'indexOf'):
+            idx = tabs.indexOf(prop_widget)
+            if idx >= 0:
+                tabs.setCurrentIndex(idx)
+        self._find_edit.setFocus()
+        self._find_edit.selectAll()
+
+    def _do_find(self) -> None:
+        self._do_find_text(self._find_edit.text())
+
+    def _do_find_text(self, text: str) -> None:
+        text = text.strip()
+        if not text:
+            return
+        found = self._editor.find_component(text)
+        if found:
+            self._find_result.setText(f"Znaleziono: {text}")
+            self._find_result.setStyleSheet("font-size:9px; color:#4caf50;")
+        else:
+            self._find_result.setText(f"Nie znaleziono: {text}")
+            self._find_result.setStyleSheet("font-size:9px; color:#f44336;")
 
     def _populate_zone_nets(self) -> None:
         board = self._project.board

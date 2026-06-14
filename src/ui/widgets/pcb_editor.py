@@ -315,6 +315,11 @@ class PCBEditor(QWidget):
         # Selected zone
         self._sel_zone: Optional[CopperZone] = None
 
+        # Layer visibility: True = visible
+        self._layer_visible: dict[str, bool] = {
+            layer: True for layer in _LAYER_COLORS
+        }
+
         self.setMouseTracking(True)
         self.setFocusPolicy(Qt.StrongFocus)
         self.setMinimumSize(400, 300)
@@ -348,6 +353,13 @@ class PCBEditor(QWidget):
         }
         self.setCursor(cursors.get(mode, Qt.CrossCursor))
         self.update()
+
+    def set_layer_visible(self, layer: str, visible: bool) -> None:
+        self._layer_visible[layer] = visible
+        self.update()
+
+    def is_layer_visible(self, layer: str) -> bool:
+        return self._layer_visible.get(layer, True)
 
     def set_zone_net(self, net_name: str) -> None:
         self._zone_net = net_name
@@ -416,6 +428,24 @@ class PCBEditor(QWidget):
     def fit_view(self) -> None:
         self._fit_view()
         self.update()
+
+    def find_component(self, ref: str) -> bool:
+        """Center view on component with given reference. Returns True if found."""
+        if not self._board:
+            return False
+        ref = ref.strip().upper()
+        for c in self._board.components:
+            if c.reference.upper() == ref:
+                self._sel_comp = c
+                self.component_selected.emit(c)
+                # Center view on component
+                self._off_x = self.width()  / 2 - c.x * self._scale
+                self._off_y = self.height() / 2 - c.y * self._scale
+                self.update()
+                self.status_message.emit(f"Znaleziono: {c.reference} ({c.value}) @ ({c.x:.2f}, {c.y:.2f})")
+                return True
+        self.status_message.emit(f"Nie znaleziono: {ref}")
+        return False
 
     # ── Coordinate helpers ────────────────────────────────────────────────────
 
@@ -550,6 +580,8 @@ class PCBEditor(QWidget):
         for gl in self._board.graphic_lines:
             if gl.layer == "Edge.Cuts":
                 continue
+            if not self._layer_visible.get(gl.layer, True):
+                continue
             c = QColor(_LAYER_COLORS.get(gl.layer, "#888"))
             w = max(0.5, gl.width * self._scale)
             p.setPen(QPen(c, w))
@@ -560,6 +592,8 @@ class PCBEditor(QWidget):
     def _draw_traces(self, p: QPainter) -> None:
         hn = self._highlighted_net
         for t in self._board.traces:
+            if not self._layer_visible.get(t.layer, True):
+                continue
             is_del_hover = (self._mode == EditorMode.DELETE and self._hover_del is t)
             is_sel = (self._sel_trace is t)
             is_highlighted = bool(hn and t.net_name == hn)
@@ -650,6 +684,8 @@ class PCBEditor(QWidget):
         from PySide6.QtGui import QPolygonF
         for zone in self._board.zones:
             if len(zone.points) < 3:
+                continue
+            if not self._layer_visible.get(zone.layer, True):
                 continue
             base_c = QColor(_LAYER_COLORS.get(zone.layer, "#888"))
             is_sel = (zone is self._sel_zone)

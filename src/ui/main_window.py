@@ -44,6 +44,14 @@ class MainWindow(QMainWindow):
         self._build_status()
         self._build_tray()
         self._update_title()
+        self._load_startup_settings()
+
+    def _load_startup_settings(self) -> None:
+        try:
+            from src.ui.dialogs.settings_dialog import load_settings
+            self._apply_settings(load_settings())
+        except Exception:
+            pass
 
     # ── Tray ─────────────────────────────────────────────────────────────────
 
@@ -149,6 +157,11 @@ class MainWindow(QMainWindow):
         act_tray.setChecked(True)
         act_tray.toggled.connect(lambda c: setattr(self, "_minimize_to_tray", c))
         file_menu.addAction(act_tray)
+
+        act_settings = QAction("Ustawienia…", self)
+        act_settings.setShortcut(QKeySequence("Ctrl+,"))
+        act_settings.triggered.connect(self._on_settings)
+        file_menu.addAction(act_settings)
 
         act_quit = QAction("Wyjdź", self)
         act_quit.setShortcut(QKeySequence.Quit)
@@ -556,6 +569,23 @@ class MainWindow(QMainWindow):
         self._tabs.setCurrentWidget(self._ai_panel)
         self._ai_panel.show_model_selector()
 
+    def _on_settings(self) -> None:
+        from src.ui.dialogs.settings_dialog import SettingsDialog
+        dlg = SettingsDialog(self)
+        dlg.settings_changed.connect(self._apply_settings)
+        dlg.exec()
+
+    def _apply_settings(self, s: dict) -> None:
+        from src.ai.bridge import AIBridge
+        AIBridge.instance().set_model(s["ollama_model"])
+        from src.validators.pcb_drc import PCBValidator
+        PCBValidator.MIN_TRACE_WIDTH_MM  = s["drc_min_trace"]
+        PCBValidator.MIN_CLEARANCE_MM    = s["drc_min_clearance"]
+        PCBValidator.MIN_VIA_DRILL_MM    = s["drc_min_via_drill"]
+        PCBValidator.MIN_VIA_ANNULAR_MM  = s["drc_min_annular"]
+        PCBValidator.MIN_EDGE_CLEARANCE  = s["drc_edge_clearance"]
+        self.statusBar().showMessage("Ustawienia zapisane.")
+
     # ── Help ─────────────────────────────────────────────────────────────────
 
     def _show_shortcuts(self) -> None:
@@ -572,6 +602,8 @@ class MainWindow(QMainWindow):
             "<tr><td><b>Ctrl+O</b></td><td>Importuj .kicad_pcb</td></tr>"
             "<tr><td><b>Ctrl+G</b></td><td>Eksportuj Gerber + Drill</td></tr>"
             "<tr><td><b>Ctrl+P</b></td><td>Eksportuj pełny raport PDF</td></tr>"
+            "<tr><td><b>Ctrl+,</b></td><td>Ustawienia aplikacji</td></tr>"
+            "<tr><td><b>Ctrl+F (edytor PCB)</b></td><td>Znajdź komponent</td></tr>"
             "<tr><td><b>Alt+1..9</b></td><td>Przełącz zakładki 1-9</td></tr>"
             "<tr><td><b>F11</b></td><td>Pełny ekran</td></tr>"
             "<tr><td><b>F (w edytorze PCB)</b></td><td>Dopasuj widok</td></tr>"
