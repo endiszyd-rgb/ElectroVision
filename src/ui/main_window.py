@@ -76,6 +76,11 @@ class MainWindow(QMainWindow):
         act_new.triggered.connect(self._on_new)
         file_menu.addAction(act_new)
 
+        act_ai_gen = QAction("🤖 Nowy projekt z opisu AI…", self)
+        act_ai_gen.setShortcut(QKeySequence("Ctrl+Shift+A"))
+        act_ai_gen.triggered.connect(self._on_new_from_ai)
+        file_menu.addAction(act_ai_gen)
+
         act_template = QAction("Nowy z szablonu…", self)
         act_template.setShortcut(QKeySequence("Ctrl+Shift+N"))
         act_template.triggered.connect(self._on_new_from_template)
@@ -320,6 +325,21 @@ class MainWindow(QMainWindow):
         self._set_project(Project())
         self.statusBar().showMessage("Nowy projekt utworzony.")
 
+    def _on_new_from_ai(self) -> None:
+        from src.ui.dialogs.ai_project_dialog import AIProjectDialog
+        dlg = AIProjectDialog(self)
+        if dlg.exec():
+            proj = dlg.result_project()
+            if proj:
+                self._set_project(proj)
+                n_comp = len(proj.board.components) if proj.board else 0
+                self.statusBar().showMessage(
+                    f"Projekt AI: {proj.name}  |  "
+                    f"Komponentów: {n_comp}  |  "
+                    f"Otwarto w Edytorze PCB — ułóż ścieżki i zapisz."
+                )
+                self._tabs.setCurrentWidget(self._pcb_editor)
+
     def _on_new_from_template(self) -> None:
         from src.ui.dialogs.template_dialog import TemplateDialog
         dlg = TemplateDialog(self)
@@ -518,6 +538,7 @@ class MainWindow(QMainWindow):
             "<h3>Skróty klawiszowe ElectroVision</h3>"
             "<table>"
             "<tr><td><b>Ctrl+N</b></td><td>Nowy projekt</td></tr>"
+            "<tr><td><b>Ctrl+Shift+A</b></td><td>Nowy projekt z opisu AI</td></tr>"
             "<tr><td><b>Ctrl+Shift+N</b></td><td>Nowy z szablonu</td></tr>"
             "<tr><td><b>Ctrl+S</b></td><td>Zapisz projekt (.evproj)</td></tr>"
             "<tr><td><b>Ctrl+Shift+S</b></td><td>Zapisz projekt jako…</td></tr>"
