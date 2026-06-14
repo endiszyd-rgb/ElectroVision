@@ -158,14 +158,16 @@ class PCBEditorPanel(QWidget):
         )
 
         # Mode buttons
-        self._btn_select = self._mode_btn("⬚ Wybierz (S)", EditorMode.SELECT, checked=True)
-        self._btn_route  = self._mode_btn("〰 Trasuj (R)",  EditorMode.ROUTE)
-        self._btn_via    = self._mode_btn("⊙ Przelotka (V)", EditorMode.VIA)
-        self._btn_delete = self._mode_btn("✕ Usuń (X)",   EditorMode.DELETE)
-        self._btn_zone   = self._mode_btn("⬡ Strefa (Z)", EditorMode.ZONE)
+        self._btn_select  = self._mode_btn("⬚ Wybierz (S)", EditorMode.SELECT, checked=True)
+        self._btn_route   = self._mode_btn("〰 Trasuj (R)",  EditorMode.ROUTE)
+        self._btn_via     = self._mode_btn("⊙ Przelotka (V)", EditorMode.VIA)
+        self._btn_delete  = self._mode_btn("✕ Usuń (X)",   EditorMode.DELETE)
+        self._btn_zone    = self._mode_btn("⬡ Strefa (Z)", EditorMode.ZONE)
+        self._btn_measure = self._mode_btn("📐 Pomiar (T)", EditorMode.MEASURE)
 
         self._mode_group = QButtonGroup(self)
-        for btn in [self._btn_select, self._btn_route, self._btn_via, self._btn_delete, self._btn_zone]:
+        for btn in [self._btn_select, self._btn_route, self._btn_via,
+                    self._btn_delete, self._btn_zone, self._btn_measure]:
             btn.setCheckable(True)
             self._mode_group.addButton(btn)
             tb.addWidget(btn)

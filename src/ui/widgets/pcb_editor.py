@@ -57,6 +57,7 @@ class EditorMode(Enum):
     DELETE    = "delete"
     ADD_COMP  = "add_comp"
     ZONE      = "zone"
+    MEASURE   = "measure"
 
 
 # ── Undo commands ─────────────────────────────────────────────────────────────
@@ -332,6 +333,9 @@ class PCBEditor(QWidget):
         self._zone_pts: list[tuple[float, float]] = []
         self._zone_net: str = "GND"
 
+        # Measurement tool state
+        self._measure_pts: list[tuple[float, float]] = []
+
         # Ratsnest toggle
         self._show_ratsnest: bool = True
 
@@ -376,6 +380,7 @@ class PCBEditor(QWidget):
             EditorMode.DELETE:   Qt.ForbiddenCursor,
             EditorMode.ADD_COMP: Qt.DragCopyCursor,
             EditorMode.ZONE:     Qt.CrossCursor,
+            EditorMode.MEASURE:  Qt.CrossCursor,
         }
         self.setCursor(cursors.get(mode, Qt.CrossCursor))
         self.update()
@@ -577,6 +582,7 @@ class PCBEditor(QWidget):
         self._draw_zone_preview(p)
         self._draw_pending_comp(p)
         self._draw_drc_overlay(p)
+        self._draw_measure(p)
         self._draw_status_bar(p)
 
     def _draw_grid(self, p: QPainter) -> None:
@@ -857,6 +863,44 @@ class PCBEditor(QWidget):
             p.setFont(QFont("Consolas", max(6, int(self._scale * 1.1))))
             p.drawText(QPointF(cx + cs + 2, cy + 4), c.reference)
 
+    def _draw_measure(self, p: QPainter) -> None:
+        if self._mode != EditorMode.MEASURE:
+            return
+        pts = self._measure_pts
+        color = QColor("#00e5ff")
+        p.setPen(QPen(color, 1.5, Qt.DashLine))
+        p.setBrush(Qt.NoBrush)
+
+        all_pts = pts + [self._cursor_w] if len(pts) == 1 else pts
+
+        if len(all_pts) >= 2:
+            ax, ay = self._w2s(*all_pts[0])
+            bx, by = self._w2s(*all_pts[1])
+            p.drawLine(int(ax), int(ay), int(bx), int(by))
+            # Endpoints
+            p.setBrush(color)
+            p.setPen(Qt.NoPen)
+            p.drawEllipse(QPointF(ax, ay), 4, 4)
+            p.drawEllipse(QPointF(bx, by), 4, 4)
+            # Distance label at midpoint
+            dx = all_pts[1][0] - all_pts[0][0]
+            dy = all_pts[1][1] - all_pts[0][1]
+            dist = math.hypot(dx, dy)
+            mx, my = (ax + bx) / 2, (ay + by) / 2
+            label = f"{dist:.3f} mm"
+            p.setPen(QPen(color, 1))
+            p.setFont(QFont("Consolas", 10, QFont.Bold))
+            fm = p.fontMetrics()
+            tw = fm.horizontalAdvance(label)
+            bg = QColor(0, 0, 0, 160)
+            p.fillRect(int(mx - tw/2 - 4), int(my - 14), tw + 8, 18, bg)
+            p.drawText(QPointF(mx - tw / 2, my), label)
+        elif len(pts) == 0:
+            p.setPen(QColor("#aaa"))
+            p.setFont(QFont("Consolas", 9))
+            p.drawText(8, self.height() - 40,
+                       "POMIAR: kliknij punkt A, potem punkt B")
+
     def _draw_drc_overlay(self, p: QPainter) -> None:
         if not self._drc_violations:
             return
@@ -893,6 +937,7 @@ class PCBEditor(QWidget):
             EditorMode.DELETE:   "USUŃ",
             EditorMode.ADD_COMP: "UMIEŚĆ KOMPONENT",
             EditorMode.ZONE:     f"STREFA MIEDZI ({self._zone_net}) [{len(self._zone_pts)} pkt]",
+            EditorMode.MEASURE:  "POMIAR",
         }
         mode_str = mode_names.get(self._mode, "")
         info = (f"[{mode_str}]  X={wx:.2f}  Y={wy:.2f} mm  "
@@ -938,6 +983,9 @@ class PCBEditor(QWidget):
         elif self._mode == EditorMode.ZONE:
             self._handle_zone_click(snx, sny, e)
 
+        elif self._mode == EditorMode.MEASURE:
+            self._handle_measure_click(snx, sny)
+
     def _handle_select_click(self, wx: float, wy: float,
                               sx: float, sy: float) -> None:
         comp = self._comp_at(wx, wy)
@@ -967,10 +1015,19 @@ class PCBEditor(QWidget):
             self._sel_comp  = None
             self._sel_via   = None
             self.component_selected.emit(None)
+            # Auto-highlight net of clicked trace
+            if tr.net_name:
+                self._highlighted_net = tr.net_name
+                self.status_message.emit(
+                    f"Sieć: {tr.net_name}  "
+                    f"[{tr.layer}]  szer={tr.width:.3f}mm  "
+                    f"({tr.x1:.2f},{tr.y1:.2f})→({tr.x2:.2f},{tr.y2:.2f})"
+                )
             self.update()
             return
-        # Click on empty space — deselect
+        # Click on empty space — deselect + clear net highlight
         self._sel_comp = self._sel_trace = self._sel_via = None
+        self._highlighted_net = ""
         self.component_selected.emit(None)
         self.update()
 
@@ -1040,6 +1097,25 @@ class PCBEditor(QWidget):
             self._finish_zone(wx, wy)
         else:
             self._zone_pts.append((wx, wy))
+        self.update()
+
+    def _handle_measure_click(self, wx: float, wy: float) -> None:
+        if len(self._measure_pts) == 0:
+            self._measure_pts = [(wx, wy)]
+            self.status_message.emit("Pomiar: kliknij drugi punkt")
+        elif len(self._measure_pts) == 1:
+            ax, ay = self._measure_pts[0]
+            dist = math.hypot(wx - ax, wy - ay)
+            self._measure_pts = [(ax, ay), (wx, wy)]
+            self.status_message.emit(
+                f"Odległość: {dist:.3f} mm  |  "
+                f"ΔX={abs(wx-ax):.3f}  ΔY={abs(wy-ay):.3f}  "
+                f"  (kliknij ponownie aby rozpocząć nowy pomiar)"
+            )
+        else:
+            # Start new measurement
+            self._measure_pts = [(wx, wy)]
+            self.status_message.emit("Pomiar: kliknij drugi punkt")
         self.update()
 
     def _finish_zone(self, ex: float = 0, ey: float = 0) -> None:
@@ -1175,7 +1251,11 @@ class PCBEditor(QWidget):
                 self._zone_pts.clear()
                 self.status_message.emit("Strefa anulowana")
                 self.update()
-            elif self._mode in (EditorMode.ADD_COMP, EditorMode.ZONE):
+            elif self._measure_pts:
+                self._measure_pts.clear()
+                self.status_message.emit("Pomiar wyczyszczony")
+                self.update()
+            elif self._mode in (EditorMode.ADD_COMP, EditorMode.ZONE, EditorMode.MEASURE):
                 self.set_mode(EditorMode.SELECT)
 
         elif e.key() == Qt.Key_Return or e.key() == Qt.Key_Enter:
@@ -1221,6 +1301,9 @@ class PCBEditor(QWidget):
                 "Ratsnest: " + ("widoczny" if self._show_ratsnest else "ukryty")
             )
             self.update()
+
+        elif e.key() == Qt.Key_T:
+            self.set_mode(EditorMode.MEASURE)
 
     # ── Rotate / Mirror ───────────────────────────────────────────────────────
 

@@ -150,6 +150,11 @@ class MainWindow(QMainWindow):
         act_gerber.triggered.connect(self._export_gerber)
         export_menu.addAction(act_gerber)
 
+        act_jlcpcb = QAction("JLCPCB / PCBWay — Gerber + BOM + CPL (ZIP)", self)
+        act_jlcpcb.setShortcut(QKeySequence("Ctrl+Shift+G"))
+        act_jlcpcb.triggered.connect(self._export_jlcpcb)
+        export_menu.addAction(act_jlcpcb)
+
         file_menu.addSeparator()
 
         act_tray = QAction("Minimalizuj do traya przy zamknięciu", self)
@@ -300,6 +305,12 @@ class MainWindow(QMainWindow):
         self._ollama_timer.timeout.connect(self._check_ollama_status)
         self._ollama_timer.start(8000)  # check every 8 s
         self._check_ollama_status()     # immediate first check
+
+        # Autosave timer (default 5 min, configured via settings)
+        self._autosave_timer = QTimer(self)
+        self._autosave_timer.timeout.connect(self._autosave)
+        self._autosave_interval_min = 5
+        self._autosave_timer.start(5 * 60 * 1000)
 
         self.statusBar().showMessage("Witaj w ElectroVision!")
 
@@ -554,6 +565,28 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, "Błąd Gerber", str(e))
 
+    def _export_jlcpcb(self) -> None:
+        if not self._check_board():
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Zapisz paczkę JLCPCB/PCBWay",
+            f"{self._project.name}_JLCPCB.zip",
+            "ZIP (*.zip)"
+        )
+        if not path:
+            return
+        try:
+            from src.generators.jlcpcb_generator import JLCPCBExporter
+            exp = JLCPCBExporter(self._project.board, self._project.name)
+            files = exp.export_zip(path)
+            QMessageBox.information(
+                self, "JLCPCB Export",
+                f"Zapisano {len(files)} plików w:\n{path}\n\n"
+                "Zawartość:\n" + "\n".join(f"  • {f}" for f in files)
+            )
+        except Exception as e:
+            QMessageBox.critical(self, "Błąd eksportu JLCPCB", str(e))
+
     # ── View actions ─────────────────────────────────────────────────────────
 
     def _on_fullscreen(self, checked: bool) -> None:
@@ -587,7 +620,31 @@ class MainWindow(QMainWindow):
         PCBValidator.MIN_VIA_DRILL_MM    = s["drc_min_via_drill"]
         PCBValidator.MIN_VIA_ANNULAR_MM  = s["drc_min_annular"]
         PCBValidator.MIN_EDGE_CLEARANCE  = s["drc_edge_clearance"]
+        # Update autosave interval
+        interval_min = int(s.get("autosave_min", 5))
+        if interval_min != self._autosave_interval_min:
+            self._autosave_interval_min = interval_min
+            self._autosave_timer.setInterval(interval_min * 60 * 1000)
         self.statusBar().showMessage("Ustawienia zapisane.")
+
+    def _autosave(self) -> None:
+        if not self._project.board:
+            return
+        try:
+            import tempfile, json
+            from pathlib import Path
+            autosave_dir = Path.home() / ".electrovision_autosave"
+            autosave_dir.mkdir(parents=True, exist_ok=True)
+            name = (self._project.name or "project").replace(" ", "_")
+            path = autosave_dir / f"{name}_autosave.evproj"
+            from src.core.project_io import save_project
+            save_project(self._project, str(path))
+            self.statusBar().showMessage(
+                f"Autozapis: {path.name}  [{__import__('datetime').datetime.now().strftime('%H:%M:%S')}]",
+                4000
+            )
+        except Exception:
+            pass
 
     # ── Help ─────────────────────────────────────────────────────────────────
 
@@ -604,13 +661,14 @@ class MainWindow(QMainWindow):
             "<tr><td><b>Ctrl+Shift+O</b></td><td>Otwórz projekt (.evproj)</td></tr>"
             "<tr><td><b>Ctrl+O</b></td><td>Importuj .kicad_pcb</td></tr>"
             "<tr><td><b>Ctrl+G</b></td><td>Eksportuj Gerber + Drill</td></tr>"
+            "<tr><td><b>Ctrl+Shift+G</b></td><td>Eksportuj JLCPCB/PCBWay ZIP (Gerber+BOM+CPL)</td></tr>"
             "<tr><td><b>Ctrl+P</b></td><td>Eksportuj pełny raport PDF</td></tr>"
             "<tr><td><b>Ctrl+,</b></td><td>Ustawienia aplikacji</td></tr>"
             "<tr><td><b>Ctrl+F (edytor PCB)</b></td><td>Znajdź komponent</td></tr>"
             "<tr><td><b>Alt+1..9</b></td><td>Przełącz zakładki 1-9</td></tr>"
             "<tr><td><b>F11</b></td><td>Pełny ekran</td></tr>"
             "<tr><td><b>F (w edytorze PCB)</b></td><td>Dopasuj widok</td></tr>"
-            "<tr><td><b>S/R/V/X (edytor PCB)</b></td><td>Tryb: Select/Route/Via/Delete</td></tr>"
+            "<tr><td><b>S/R/V/X/T (edytor PCB)</b></td><td>Tryb: Select/Route/Via/Delete/Pomiar</td></tr>"
             "<tr><td><b>Space (edytor PCB)</b></td><td>Obróć komponent o 90°</td></tr>"
             "<tr><td><b>M (edytor PCB)</b></td><td>Lustro komponentu</td></tr>"
             "<tr><td><b>Ctrl+Z / Ctrl+Y</b></td><td>Cofnij / Ponów</td></tr>"
