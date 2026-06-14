@@ -176,9 +176,23 @@ class STLGenPanel(QWidget):
         tabs.addTab(exp_tab, "Eksport")
         left_layout.addWidget(tabs)
 
+        # AI Designer — full dialog
+        btn_ai_designer = QPushButton("🤖 AI Designer — Zaprojektuj przez opis")
+        btn_ai_designer.setStyleSheet(
+            "QPushButton{background:#1a3a6a;color:#88aaff;font-weight:bold;"
+            "font-size:11px;padding:8px;border:1px solid #2a4a8a;}"
+            "QPushButton:hover{background:#1e4a8a;}"
+        )
+        btn_ai_designer.setToolTip(
+            "Otworz dedykowany dialog AI do projektowania obudowy 3D.\n"
+            "Opisz obudowe slowami — AI wygeneruje kod i podglad 3D."
+        )
+        btn_ai_designer.clicked.connect(self._open_ai_designer)
+        left_layout.addWidget(btn_ai_designer)
+
         # Generate buttons
-        btn_gen = QPushButton("⚙  Generuj STL + STEP")
-        btn_gen.setStyleSheet("font-weight: bold; font-size: 12px; padding: 8px;")
+        btn_gen = QPushButton("⚙  Generuj STL + STEP (parametrycznie)")
+        btn_gen.setStyleSheet("font-weight: bold; font-size: 11px; padding: 7px;")
         btn_gen.clicked.connect(self._generate)
         left_layout.addWidget(btn_gen)
 
@@ -306,6 +320,18 @@ class STLGenPanel(QWidget):
             board=project.board,
             stl_params=self._get_params(),
         )
+
+    def _open_ai_designer(self) -> None:
+        from src.ui.dialogs.ai_stl_dialog import AISTLDialog
+        dlg = AISTLDialog(self._project, parent=self)
+        dlg.stl_ready.connect(self._on_ai_designer_done)
+        dlg.exec()
+
+    def _on_ai_designer_done(self, stl_path: str) -> None:
+        self._last_stl = stl_path
+        self._log.append(f"[AI Designer] STL zaladowany: {stl_path}")
+        if Path(stl_path).exists():
+            self._stl_viewer.load_stl(stl_path)
 
     def _get_params(self) -> dict:
         return {
