@@ -305,7 +305,13 @@ class PCBEditor(QWidget):
         self._sel_comp:  Optional[Component] = None
         self._sel_trace: Optional[Trace]     = None
         self._sel_via:   Optional[Via]       = None
+        self._sel_comps: set                 = set()   # multi-select set
         self._hover_del: object | None       = None   # highlighted for delete
+
+        # Rubber-band multi-select
+        self._rubber_active = False
+        self._rubber_start  = (0.0, 0.0)  # world coords
+        self._rubber_end    = (0.0, 0.0)
 
         # Drag (move component)
         self._dragging       = False
@@ -444,6 +450,68 @@ class PCBEditor(QWidget):
         self._emit_undo_state()
         self.board_modified.emit()
         self.status_message.emit(f"Wyrównano {len(self._board.components)} komp. do siatki {self._grid_mm}mm")
+        self.update()
+
+    def get_selected_comps(self) -> list:
+        """Return list of currently multi-selected components."""
+        return list(self._sel_comps)
+
+    def align_selected(self, mode: str) -> None:
+        """Align multi-selected components. mode: left|right|top|bottom|center_h|center_v"""
+        comps = list(self._sel_comps)
+        if len(comps) < 2:
+            self.status_message.emit("Zaznacz co najmniej 2 komponenty (przeciągnij w trybie SELECT)")
+            return
+        xs = [c.x for c in comps]
+        ys = [c.y for c in comps]
+        if mode == "left":
+            target = min(xs)
+            for c in comps:
+                if c.x != target:
+                    cmd = _MoveComp(c, c.x, c.y, target, c.y); cmd.redo(); self._undo_stack.append(cmd)
+        elif mode == "right":
+            target = max(xs)
+            for c in comps:
+                if c.x != target:
+                    cmd = _MoveComp(c, c.x, c.y, target, c.y); cmd.redo(); self._undo_stack.append(cmd)
+        elif mode == "top":
+            target = min(ys)
+            for c in comps:
+                if c.y != target:
+                    cmd = _MoveComp(c, c.x, c.y, c.x, target); cmd.redo(); self._undo_stack.append(cmd)
+        elif mode == "bottom":
+            target = max(ys)
+            for c in comps:
+                if c.y != target:
+                    cmd = _MoveComp(c, c.x, c.y, c.x, target); cmd.redo(); self._undo_stack.append(cmd)
+        elif mode == "center_h":
+            target = sum(xs) / len(xs)
+            for c in comps:
+                cmd = _MoveComp(c, c.x, c.y, target, c.y); cmd.redo(); self._undo_stack.append(cmd)
+        elif mode == "center_v":
+            target = sum(ys) / len(ys)
+            for c in comps:
+                cmd = _MoveComp(c, c.x, c.y, c.x, target); cmd.redo(); self._undo_stack.append(cmd)
+        elif mode == "dist_h":
+            comps_sorted = sorted(comps, key=lambda c: c.x)
+            if len(comps_sorted) >= 2:
+                x_start, x_end = comps_sorted[0].x, comps_sorted[-1].x
+                step = (x_end - x_start) / (len(comps_sorted) - 1)
+                for i, c in enumerate(comps_sorted):
+                    nx = x_start + i * step
+                    cmd = _MoveComp(c, c.x, c.y, nx, c.y); cmd.redo(); self._undo_stack.append(cmd)
+        elif mode == "dist_v":
+            comps_sorted = sorted(comps, key=lambda c: c.y)
+            if len(comps_sorted) >= 2:
+                y_start, y_end = comps_sorted[0].y, comps_sorted[-1].y
+                step = (y_end - y_start) / (len(comps_sorted) - 1)
+                for i, c in enumerate(comps_sorted):
+                    ny = y_start + i * step
+                    cmd = _MoveComp(c, c.x, c.y, c.x, ny); cmd.redo(); self._undo_stack.append(cmd)
+        self._redo_stack.clear()
+        self._emit_undo_state()
+        self.board_modified.emit()
+        self.status_message.emit(f"Wyrównano {len(comps)} komponentów ({mode})")
         self.update()
 
     def undo(self) -> None:
@@ -606,6 +674,7 @@ class PCBEditor(QWidget):
         self._draw_pending_comp(p)
         self._draw_drc_overlay(p)
         self._draw_measure(p)
+        self._draw_rubber_band(p)
         self._draw_status_bar(p)
 
     def _draw_grid(self, p: QPainter) -> None:
@@ -690,7 +759,7 @@ class PCBEditor(QWidget):
         hn = self._highlighted_net
         for c in self._board.components:
             is_del_hover = (self._mode == EditorMode.DELETE and self._hover_del is c)
-            is_sel = (self._sel_comp is c)
+            is_sel = (self._sel_comp is c) or (c in self._sel_comps)
             is_on_net = bool(hn and any(pd.net_name == hn for pd in c.pads))
             border_c = _DEL_HOVER if is_del_hover else (
                 _SEL_COLOR if is_sel else (
@@ -701,8 +770,10 @@ class PCBEditor(QWidget):
             )
             cx, cy = self._w2s(c.x, c.y)
             fill = QColor("#2a1a1a") if is_del_hover else (
-                QColor("#2a2a00") if is_sel else (
-                    QColor("#2a2a00") if is_on_net else _COMP_FILL
+                QColor("#1a2a1a") if (is_sel and c in self._sel_comps) else (
+                    QColor("#2a2a00") if is_sel else (
+                        QColor("#2a2a00") if is_on_net else _COMP_FILL
+                    )
                 )
             )
             # Save/restore for rotation
@@ -951,6 +1022,20 @@ class PCBEditor(QWidget):
                 p.setPen(color)
                 p.drawText(QPointF(sx + r + 2, sy + 4), msg[:40])
 
+    def _draw_rubber_band(self, p: QPainter) -> None:
+        if not self._rubber_active:
+            return
+        x1, y1 = self._w2s(*self._rubber_start)
+        x2, y2 = self._w2s(*self._rubber_end)
+        rx, ry = min(x1, x2), min(y1, y2)
+        rw, rh = abs(x2 - x1), abs(y2 - y1)
+        sel_color = QColor("#4080ff")
+        p.setPen(QPen(sel_color, 1, Qt.DashLine))
+        fill = QColor(sel_color)
+        fill.setAlpha(25)
+        p.setBrush(QBrush(fill))
+        p.drawRect(int(rx), int(ry), int(rw), int(rh))
+
     def _draw_status_bar(self, p: QPainter) -> None:
         wx, wy = self._cursor_w
         mode_names = {
@@ -1049,11 +1134,20 @@ class PCBEditor(QWidget):
                 )
             self.update()
             return
-        # Click on empty space — deselect + clear net highlight
+        # Click on empty space — start rubber-band or deselect
+        mods = QApplication.keyboardModifiers() if hasattr(QApplication, 'keyboardModifiers') else 0
+        from PySide6.QtWidgets import QApplication as _QApp
+        shift = bool(_QApp.keyboardModifiers() & Qt.ShiftModifier)
+        if not shift:
+            self._sel_comps.clear()
         self._sel_comp = self._sel_trace = self._sel_via = None
         self._highlighted_net = ""
         self.component_selected.emit(None)
         self.trace_selected.emit(None)
+        # Begin rubber-band selection
+        self._rubber_active = True
+        self._rubber_start  = (wx, wy)
+        self._rubber_end    = (wx, wy)
         self.update()
 
     def _handle_route_click(self, snx: float, sny: float,
@@ -1224,6 +1318,11 @@ class PCBEditor(QWidget):
             self.update()
             return
 
+        if self._rubber_active:
+            self._rubber_end = (wx, wy)
+            self.update()
+            return
+
         # Delete mode: update hover highlight
         if self._mode == EditorMode.DELETE and self._board:
             hit = (self._comp_at(wx, wy)
@@ -1239,6 +1338,26 @@ class PCBEditor(QWidget):
     def mouseReleaseEvent(self, e: QMouseEvent) -> None:
         if e.button() in (Qt.MiddleButton, Qt.RightButton):
             self._panning = False
+            return
+
+        if e.button() == Qt.LeftButton and self._rubber_active:
+            self._rubber_active = False
+            x1, y1 = self._rubber_start
+            x2, y2 = self._rubber_end
+            # Select all components within rubber-band rect
+            rx_min, rx_max = min(x1, x2), max(x1, x2)
+            ry_min, ry_max = min(y1, y2), max(y1, y2)
+            if self._board and (rx_max - rx_min > 0.5 or ry_max - ry_min > 0.5):
+                from PySide6.QtWidgets import QApplication as _QApp
+                shift = bool(_QApp.keyboardModifiers() & Qt.ShiftModifier)
+                if not shift:
+                    self._sel_comps.clear()
+                for comp in self._board.components:
+                    if rx_min <= comp.x <= rx_max and ry_min <= comp.y <= ry_max:
+                        self._sel_comps.add(comp)
+                if self._sel_comps:
+                    self.status_message.emit(f"Zaznaczono {len(self._sel_comps)} komponentów")
+            self.update()
             return
 
         if e.button() == Qt.LeftButton and self._dragging and self._drag_comp:

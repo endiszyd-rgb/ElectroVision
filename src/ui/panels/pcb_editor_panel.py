@@ -641,6 +641,41 @@ class PCBEditorPanel(QWidget):
         btn_clear_hl.clicked.connect(self._editor.clear_highlight)
         lay.addWidget(btn_clear_hl)
 
+        # ── Alignment tools ──────────────────────────────────────────────────
+        align_hdr = QLabel("Wyrównanie (zaznacz przeciągając)")
+        align_hdr.setStyleSheet("color:#aaa; font-size:9px; padding-top:6px;")
+        lay.addWidget(align_hdr)
+
+        row1 = QHBoxLayout()
+        for label, mode, tip in [
+            ("◀", "left",  "Wyrównaj do lewej krawędzi"),
+            ("▶", "right", "Wyrównaj do prawej krawędzi"),
+            ("▲", "top",   "Wyrównaj do górnej krawędzi"),
+            ("▼", "bottom","Wyrównaj do dolnej krawędzi"),
+        ]:
+            btn = QPushButton(label)
+            btn.setToolTip(tip)
+            btn.setFixedWidth(36)
+            captured = mode
+            btn.clicked.connect(lambda _, m=captured: self._editor.align_selected(m))
+            row1.addWidget(btn)
+        lay.addLayout(row1)
+
+        row2 = QHBoxLayout()
+        for label, mode, tip in [
+            ("—", "center_h", "Wyśrodkuj w poziomie"),
+            ("|", "center_v", "Wyśrodkuj w pionie"),
+            ("⇔", "dist_h",   "Rozłóż równomiernie poziomo"),
+            ("⇕", "dist_v",   "Rozłóż równomiernie pionowo"),
+        ]:
+            btn = QPushButton(label)
+            btn.setToolTip(tip)
+            btn.setFixedWidth(36)
+            captured = mode
+            btn.clicked.connect(lambda _, m=captured: self._editor.align_selected(m))
+            row2.addWidget(btn)
+        lay.addLayout(row2)
+
         return w
 
     def _update_history(self) -> None:
