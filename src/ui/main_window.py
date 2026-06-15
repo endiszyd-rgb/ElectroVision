@@ -290,6 +290,11 @@ class MainWindow(QMainWindow):
 
         tools_menu.addSeparator()
 
+        act_fp = QAction("🔌 Kreator footprintu (generator obudowy)…", self)
+        act_fp.setShortcut(QKeySequence("Ctrl+Shift+F"))
+        act_fp.triggered.connect(self._open_footprint_wizard)
+        tools_menu.addAction(act_fp)
+
         act_erc = QAction("⚡ ERC — Sprawdzenie reguł elektrycznych…", self)
         act_erc.setShortcut(QKeySequence("Ctrl+Shift+X"))
         act_erc.triggered.connect(self._open_erc)
@@ -814,6 +819,13 @@ class MainWindow(QMainWindow):
         from src.ui.dialogs.trace_length_dialog import TraceLengthDialog
         dlg = TraceLengthDialog(self._project, self)
         dlg.exec()
+
+    def _open_footprint_wizard(self) -> None:
+        from src.ui.dialogs.footprint_wizard import FootprintWizardDialog
+        dlg = FootprintWizardDialog(self._project, self)
+        if dlg.exec():
+            self.project_changed.emit(self._project)
+            self.statusBar().showMessage("Dodano nowy footprint do projektu.")
 
     def _open_erc(self) -> None:
         from src.ui.dialogs.erc_dialog import ERCDialog
