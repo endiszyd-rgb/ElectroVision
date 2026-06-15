@@ -341,6 +341,13 @@ class MainWindow(QMainWindow):
         act_drc_prof.triggered.connect(self._open_drc_profiles)
         tools_menu.addAction(act_drc_prof)
 
+        tools_menu.addSeparator()
+
+        act_stl3d = QAction("🖨 Opisowe tworzenie obiektów 3D / eksport STL…", self)
+        act_stl3d.setShortcut(QKeySequence("Ctrl+Shift+3"))
+        act_stl3d.triggered.connect(self._open_descriptive_stl)
+        tools_menu.addAction(act_stl3d)
+
         # ── Projekt ───────────────────────────────────────────────────────────
         project_menu = mb.addMenu("&Projekt")
 
@@ -901,6 +908,11 @@ class MainWindow(QMainWindow):
         dlg.exec()
         self.statusBar().showMessage("Profil DRC zaktualizowany.")
 
+    def _open_descriptive_stl(self) -> None:
+        from src.ui.dialogs.descriptive_stl_dialog import DescriptiveSTLDialog
+        dlg = DescriptiveSTLDialog(self._project, self)
+        dlg.exec()
+
     def _open_copper_pour(self) -> None:
         from src.ui.dialogs.copper_pour_dialog import CopperPourDialog
         if not self._check_board():
@@ -1014,6 +1026,11 @@ class MainWindow(QMainWindow):
             "<tr><td><b>Ctrl+Shift+E</b></td><td>Analiza długości ścieżek / pary diff</td></tr>"
             "<tr><td><b>Ctrl+Shift+B</b></td><td>Generator tablicy komponentów</td></tr>"
             "<tr><td><b>Ctrl+Shift+Y</b></td><td>Topologia sieci (graf połączeń)</td></tr>"
+            "<tr><td><b>Ctrl+Shift+P</b></td><td>Miedź (Copper Pour) — analizy i editor stref</td></tr>"
+            "<tr><td><b>Ctrl+Shift+M</b></td><td>Kreator symboli (KiCad .kicad_sym)</td></tr>"
+            "<tr><td><b>Ctrl+Shift+I</b></td><td>Menedżer punktów testowych (ICT/flying probe)</td></tr>"
+            "<tr><td><b>Ctrl+Shift+Q</b></td><td>Profile reguł DRC (JLCPCB, PCBWay, OSH Park…)</td></tr>"
+            "<tr><td><b>Ctrl+Shift+3</b></td><td>Opisowe tworzenie obiektów 3D / eksport STL</td></tr>"
             "<tr><td><b>Scroll</b></td><td>Zoom w widokach 2D/3D/Edytor</td></tr>"
             "<tr><td><b>PPM / Środkowy</b></td><td>Przesuń widok</td></tr>"
             "</table>"
