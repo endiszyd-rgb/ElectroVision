@@ -253,6 +253,21 @@ class MainWindow(QMainWindow):
         act_wave.triggered.connect(self._open_waveform)
         tools_menu.addAction(act_wave)
 
+        tools_menu.addSeparator()
+
+        act_dfm = QAction("🏭 Kontrola produkcyjna (DFM)…", self)
+        act_dfm.setShortcut(QKeySequence("Ctrl+Shift+D"))
+        act_dfm.triggered.connect(self._open_dfm)
+        tools_menu.addAction(act_dfm)
+
+        act_annotate = QAction("🔢 Auto-Annotation (numerowanie)…", self)
+        act_annotate.triggered.connect(self._open_annotation)
+        tools_menu.addAction(act_annotate)
+
+        act_outline = QAction("📐 Kreator konturu płytki…", self)
+        act_outline.triggered.connect(self._open_board_outline)
+        tools_menu.addAction(act_outline)
+
         # ── Projekt ───────────────────────────────────────────────────────────
         project_menu = mb.addMenu("&Projekt")
 
@@ -731,6 +746,25 @@ class MainWindow(QMainWindow):
         from src.ui.dialogs.waveform_dialog import WaveformDialog
         dlg = WaveformDialog(self._project, self)
         dlg.exec()
+
+    def _open_dfm(self) -> None:
+        from src.ui.dialogs.dfm_dialog import DFMDialog
+        dlg = DFMDialog(self._project, self)
+        dlg.exec()
+
+    def _open_annotation(self) -> None:
+        from src.ui.dialogs.annotation_dialog import AnnotationDialog
+        dlg = AnnotationDialog(self._project, self)
+        if dlg.exec():
+            self.project_changed.emit(self._project)
+            self.statusBar().showMessage("Numerowanie komponentów zastosowane.")
+
+    def _open_board_outline(self) -> None:
+        from src.ui.dialogs.board_outline_dialog import BoardOutlineDialog
+        dlg = BoardOutlineDialog(self._project, self)
+        if dlg.exec():
+            self.project_changed.emit(self._project)
+            self.statusBar().showMessage("Kontur płytki zaktualizowany.")
 
     def _on_comp_added_from_search(self, comp) -> None:
         self.project_changed.emit(self._project)
