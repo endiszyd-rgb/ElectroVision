@@ -278,6 +278,11 @@ class MainWindow(QMainWindow):
         act_topo.triggered.connect(self._open_net_topology)
         tools_menu.addAction(act_topo)
 
+        act_array = QAction("⊞ Generator tablicy komponentów…", self)
+        act_array.setShortcut(QKeySequence("Ctrl+Shift+B"))
+        act_array.triggered.connect(self._open_array)
+        tools_menu.addAction(act_array)
+
         # ── Projekt ───────────────────────────────────────────────────────────
         project_menu = mb.addMenu("&Projekt")
 
@@ -786,6 +791,20 @@ class MainWindow(QMainWindow):
         from src.ui.dialogs.net_topology_dialog import NetTopologyDialog
         dlg = NetTopologyDialog(self._project, self)
         dlg.component_selected.connect(self._on_net_highlight)
+        dlg.exec()
+
+    def _open_array(self) -> None:
+        from src.ui.dialogs.array_dialog import ArrayDialog
+        sel = None
+        if hasattr(self._pcb_editor, "_editor"):
+            comps = self._pcb_editor._editor.get_selected_comps()
+            if comps:
+                sel = comps[0]
+        dlg = ArrayDialog(self._project, sel, self)
+        dlg.components_added.connect(lambda lst: (
+            self.project_changed.emit(self._project),
+            self.statusBar().showMessage(f"Dodano {len(lst)} komponentów z tablicy.")
+        ))
         dlg.exec()
 
     def _on_comp_added_from_search(self, comp) -> None:
