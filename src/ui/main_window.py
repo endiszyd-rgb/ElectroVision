@@ -268,6 +268,11 @@ class MainWindow(QMainWindow):
         act_outline.triggered.connect(self._open_board_outline)
         tools_menu.addAction(act_outline)
 
+        act_pinmap = QAction("📌 Mapa pinów komponentu…", self)
+        act_pinmap.setShortcut(QKeySequence("Ctrl+M"))
+        act_pinmap.triggered.connect(self._open_pin_map)
+        tools_menu.addAction(act_pinmap)
+
         # ── Projekt ───────────────────────────────────────────────────────────
         project_menu = mb.addMenu("&Projekt")
 
@@ -765,6 +770,12 @@ class MainWindow(QMainWindow):
         if dlg.exec():
             self.project_changed.emit(self._project)
             self.statusBar().showMessage("Kontur płytki zaktualizowany.")
+
+    def _open_pin_map(self, comp=None) -> None:
+        from src.ui.dialogs.pin_map_dialog import PinMapDialog
+        dlg = PinMapDialog(self._project, comp, self)
+        dlg.net_highlight_requested.connect(self._on_net_highlight)
+        dlg.exec()
 
     def _on_comp_added_from_search(self, comp) -> None:
         self.project_changed.emit(self._project)
