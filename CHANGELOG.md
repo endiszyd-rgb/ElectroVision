@@ -1,5 +1,26 @@
 # ElectroVision — Changelog / Blog
 
+## v0.6.0 — 2026-06-15
+
+### Co nowego
+
+#### Klasy sieci — Net Classes Manager (Ctrl+Shift+C)
+Definiowanie reguł trasowania per klasa sieci:
+- 6 wbudowanych presetów: Default, Power, HighSpeed, DiffPair, RF, Analog
+- Konfiguracja: min. szerokość ścieżki, prześwit, wiercenie/pierścień przelotki, gap i skew pary różnicowej
+- Kolor podświetlenia każdej klasy (wybór z color pickera)
+- Przypisywanie sieci do klas ręcznie lub przez auto-przypisanie z projektu (wzorzec)
+- Eksport / import JSON, przełącznik presetów
+
+#### Warianty projektu — Design Variants Manager (Ctrl+Shift+V)
+Zarządzanie alternatywnymi konfiguracjami BOM:
+- Tworzenie wielu wariantów (produkcyjna, prototyp, lite, DNI…)
+- Oznaczanie komponentów jako DNP (Do Not Populate) per wariant
+- Podstawianie wartości i obudów per komponent per wariant
+- Duplikowanie wariantu, filtrowanie tabeli, masowe DNP zaznaczonych
+- Eksport BOM wariantu do CSV, eksport/import konfiguracji JSON
+- Pasek statusu: łącznie / montowane / DNP per wariant
+
 ## v0.5.0 — 2026-06-15
 
 ### Co nowego

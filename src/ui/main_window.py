@@ -305,6 +305,18 @@ class MainWindow(QMainWindow):
         act_asm.triggered.connect(self._open_assembly)
         tools_menu.addAction(act_asm)
 
+        tools_menu.addSeparator()
+
+        act_net_cls = QAction("🏷 Klasy sieci (Net Classes)…", self)
+        act_net_cls.setShortcut(QKeySequence("Ctrl+Shift+C"))
+        act_net_cls.triggered.connect(self._open_net_classes)
+        tools_menu.addAction(act_net_cls)
+
+        act_variants = QAction("🔀 Warianty projektu (Design Variants)…", self)
+        act_variants.setShortcut(QKeySequence("Ctrl+Shift+V"))
+        act_variants.triggered.connect(self._open_variants)
+        tools_menu.addAction(act_variants)
+
         # ── Projekt ───────────────────────────────────────────────────────────
         project_menu = mb.addMenu("&Projekt")
 
@@ -851,6 +863,21 @@ class MainWindow(QMainWindow):
         ))
         dlg.exec()
 
+    def _open_net_classes(self) -> None:
+        from src.ui.dialogs.net_classes_dialog import NetClassesDialog
+        dlg = NetClassesDialog(self._project, self)
+        dlg.exec()
+
+    def _open_variants(self) -> None:
+        from src.ui.dialogs.variants_dialog import VariantsDialog
+        dlg = VariantsDialog(self._project, self)
+        dlg.variant_applied.connect(
+            lambda name, dnp: self.statusBar().showMessage(
+                f"Wariant '{name}' aktywny  |  DNP: {len(dnp)} komponentów"
+            )
+        )
+        dlg.exec()
+
     def _on_comp_added_from_search(self, comp) -> None:
         self.project_changed.emit(self._project)
         self._tabs.setCurrentWidget(self._pcb_editor)
@@ -927,6 +954,14 @@ class MainWindow(QMainWindow):
             "<tr><td><b>Ctrl+Z / Ctrl+Y</b></td><td>Cofnij / Ponów</td></tr>"
             "<tr><td><b>Enter (edytor PCB)</b></td><td>Zakończ trasowanie</td></tr>"
             "<tr><td><b>Esc (edytor PCB)</b></td><td>Anuluj akcję</td></tr>"
+            "<tr><td><b>Ctrl+Shift+C</b></td><td>Klasy sieci (Net Classes)</td></tr>"
+            "<tr><td><b>Ctrl+Shift+V</b></td><td>Warianty projektu (Design Variants)</td></tr>"
+            "<tr><td><b>Ctrl+Shift+U</b></td><td>Śledzenie montażu (Assembly Tracker)</td></tr>"
+            "<tr><td><b>Ctrl+Shift+X</b></td><td>ERC — sprawdzenie reguł elektrycznych</td></tr>"
+            "<tr><td><b>Ctrl+Shift+F</b></td><td>Kreator footprintu</td></tr>"
+            "<tr><td><b>Ctrl+Shift+E</b></td><td>Analiza długości ścieżek / pary diff</td></tr>"
+            "<tr><td><b>Ctrl+Shift+B</b></td><td>Generator tablicy komponentów</td></tr>"
+            "<tr><td><b>Ctrl+Shift+Y</b></td><td>Topologia sieci (graf połączeń)</td></tr>"
             "<tr><td><b>Scroll</b></td><td>Zoom w widokach 2D/3D/Edytor</td></tr>"
             "<tr><td><b>PPM / Środkowy</b></td><td>Przesuń widok</td></tr>"
             "</table>"
