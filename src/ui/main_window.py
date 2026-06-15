@@ -288,6 +288,18 @@ class MainWindow(QMainWindow):
         act_tlen.triggered.connect(self._open_trace_length)
         tools_menu.addAction(act_tlen)
 
+        tools_menu.addSeparator()
+
+        act_erc = QAction("⚡ ERC — Sprawdzenie reguł elektrycznych…", self)
+        act_erc.setShortcut(QKeySequence("Ctrl+Shift+X"))
+        act_erc.triggered.connect(self._open_erc)
+        tools_menu.addAction(act_erc)
+
+        act_asm = QAction("🔩 Śledzenie montażu (Assembly Tracker)…", self)
+        act_asm.setShortcut(QKeySequence("Ctrl+Shift+U"))
+        act_asm.triggered.connect(self._open_assembly)
+        tools_menu.addAction(act_asm)
+
         # ── Projekt ───────────────────────────────────────────────────────────
         project_menu = mb.addMenu("&Projekt")
 
@@ -801,6 +813,16 @@ class MainWindow(QMainWindow):
     def _open_trace_length(self) -> None:
         from src.ui.dialogs.trace_length_dialog import TraceLengthDialog
         dlg = TraceLengthDialog(self._project, self)
+        dlg.exec()
+
+    def _open_erc(self) -> None:
+        from src.ui.dialogs.erc_dialog import ERCDialog
+        dlg = ERCDialog(self._project, self)
+        dlg.exec()
+
+    def _open_assembly(self) -> None:
+        from src.ui.dialogs.assembly_dialog import AssemblyDialog
+        dlg = AssemblyDialog(self._project, self)
         dlg.exec()
 
     def _open_array(self) -> None:
