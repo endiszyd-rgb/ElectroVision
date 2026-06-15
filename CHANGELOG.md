@@ -1,5 +1,31 @@
 # ElectroVision — Changelog / Blog
 
+## v0.7.0 — 2026-06-15
+
+### Co nowego
+
+#### Analizator miedzianych wylewy — Copper Pour (Ctrl+Shift+P)
+Trzy zakładki:
+- **Statystyki stref** — tabela wszystkich `CopperZone` z: warstwą, siecią, polem [mm²], obwodem [mm], liczbą padów wewnątrz, prześwitem; pasek postępu wypełnienia miedzi; podsumowanie per warstwa
+- **Edytor strefy** — zmiana warstwy, sieci, prześwitu, priorytetu i wierzchołków poligonu (format X,Y jeden na linię); przycisk „Wstaw prostokąt z płytki"
+- **Wskazówki DFM** — automatyczne raporty: niskie/wysokie wypełnienie, brak B.Cu GND, zbyt małe prześwity, strefy bez padów
+- Podgląd QPainter — płytka z konturem i strefami zakolorowanymi per warstwa, podświetlenie zaznaczonej strefy
+
+#### Generator symboli schematycznych (Ctrl+Shift+M)
+Eksport do KiCad 7 `.kicad_sym`:
+- Tabela pinów: numer, nazwa, typ (10 typów: input/output/bidirectional/power_in/GND/...), strona (L/P/G/D), długość
+- Auto-układ: `input`→lewy, `output`→prawy, `VCC/VDD`→górny, `GND/VSS`→dolny, `no_connect`→prawy
+- Dodawanie hurtowe pinów przez okno tekstowe (format: `NR NAZWA TYP STRONA`)
+- 4 wbudowane presety: Op-Amp, N-MOSFET, MCU 8-pin, Złącze 4-pin
+- Podgląd QPainter w czasie rzeczywistym z kolorami per typ pinu
+- Eksport `.kicad_sym` gotowy do dodania jako biblioteka w KiCad > Symbol Editor
+
+#### Testy (43 nowe)
+- `TestPolygonArea/Perimeter/PointInPolygon` — geometria stref (shoelace, ray casting)
+- `TestAnalyseZones/TestBoardCopperSummary` — analiza padów wewnątrz strefy, pole per warstwa
+- `TestSymPin/TestSymbolDef/TestPresets/TestKiCadExport` — auto-layout, presety, format .kicad_sym
+- Łącznie: 144 testów
+
 ## v0.6.0 — 2026-06-15
 
 ### Co nowego

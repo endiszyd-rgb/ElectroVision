@@ -317,6 +317,18 @@ class MainWindow(QMainWindow):
         act_variants.triggered.connect(self._open_variants)
         tools_menu.addAction(act_variants)
 
+        tools_menu.addSeparator()
+
+        act_copper = QAction("🟫 Analizator miedzianych wylewy (Copper Pour)…", self)
+        act_copper.setShortcut(QKeySequence("Ctrl+Shift+P"))
+        act_copper.triggered.connect(self._open_copper_pour)
+        tools_menu.addAction(act_copper)
+
+        act_sym = QAction("📐 Generator symboli schematycznych (.kicad_sym)…", self)
+        act_sym.setShortcut(QKeySequence("Ctrl+Shift+M"))
+        act_sym.triggered.connect(self._open_symbol_wizard)
+        tools_menu.addAction(act_sym)
+
         # ── Projekt ───────────────────────────────────────────────────────────
         project_menu = mb.addMenu("&Projekt")
 
@@ -861,6 +873,20 @@ class MainWindow(QMainWindow):
             self.project_changed.emit(self._project),
             self.statusBar().showMessage(f"Dodano {len(lst)} komponentów z tablicy.")
         ))
+        dlg.exec()
+
+    def _open_copper_pour(self) -> None:
+        from src.ui.dialogs.copper_pour_dialog import CopperPourDialog
+        if not self._check_board():
+            return
+        dlg = CopperPourDialog(self._project, self)
+        if dlg.exec():
+            self.project_changed.emit(self._project)
+            self.statusBar().showMessage("Zaktualizowano strefy miedziowe.")
+
+    def _open_symbol_wizard(self) -> None:
+        from src.ui.dialogs.symbol_wizard_dialog import SymbolWizardDialog
+        dlg = SymbolWizardDialog(self._project, self)
         dlg.exec()
 
     def _open_net_classes(self) -> None:
