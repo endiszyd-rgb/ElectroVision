@@ -236,6 +236,18 @@ class MainWindow(QMainWindow):
         act_signal.triggered.connect(self._open_signal_analysis)
         tools_menu.addAction(act_signal)
 
+        act_stackup = QAction("🔳 Edytor stosu warstw (Stackup)…", self)
+        act_stackup.setShortcut(QKeySequence("Ctrl+Shift+L"))
+        act_stackup.triggered.connect(self._open_stackup)
+        tools_menu.addAction(act_stackup)
+
+        tools_menu.addSeparator()
+
+        act_comp_search = QAction("🔎 Wyszukiwarka komponentów…", self)
+        act_comp_search.setShortcut(QKeySequence("Ctrl+F"))
+        act_comp_search.triggered.connect(self._open_comp_search)
+        tools_menu.addAction(act_comp_search)
+
         # ── Projekt ───────────────────────────────────────────────────────────
         project_menu = mb.addMenu("&Projekt")
 
@@ -698,6 +710,22 @@ class MainWindow(QMainWindow):
         from src.ui.dialogs.signal_analysis_dialog import SignalAnalysisDialog
         dlg = SignalAnalysisDialog(self._project, self)
         dlg.exec()
+
+    def _open_stackup(self) -> None:
+        from src.ui.dialogs.stackup_editor_dialog import StackupEditorDialog
+        dlg = StackupEditorDialog(self._project, self)
+        dlg.exec()
+
+    def _open_comp_search(self) -> None:
+        from src.ui.dialogs.component_search_dialog import ComponentSearchDialog
+        dlg = ComponentSearchDialog(self._project, self)
+        dlg.component_add_requested.connect(self._on_comp_added_from_search)
+        dlg.exec()
+
+    def _on_comp_added_from_search(self, comp) -> None:
+        self.project_changed.emit(self._project)
+        self._tabs.setCurrentWidget(self._pcb_editor)
+        self.statusBar().showMessage(f"Dodano {comp.reference} ({comp.value}) do projektu")
 
     def _on_settings(self) -> None:
         from src.ui.dialogs.settings_dialog import SettingsDialog
