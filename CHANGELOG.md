@@ -1,5 +1,40 @@
 # ElectroVision — Changelog / Blog
 
+## v0.5.0 — 2026-06-15
+
+### Co nowego
+
+#### Topologia sieci — graf połączeń (Ctrl+Shift+Y)
+Dialog renderuje netlist jako graf z układem Fruchterman-Reingold:
+- Węzły = komponenty, krawędzie = sieci elektryczne
+- Kolory węzłów według typu (IC, rezystor, kondensator, …)
+- Filtry: ukryj szyny zasilania / GND, filtr po nazwie sieci
+- Zoom + pan, klik w węzeł → info panel z listą sieci, klik w krawędź → lista komponentów
+- Parametry: liczba iteracji layoutu, maksymalna liczba węzłów
+
+#### Generator tablicy komponentów (Ctrl+Shift+B)
+Duplikowanie wybranego komponentu w regularnych wzorcach:
+- Tryb siatki (rows × cols), liniowy poziomy lub pionowy
+- Automatyczne nadawanie unikalnych referencji z wybranego numeru startowego
+- Opcjonalne przypisanie sieci per element (`LED{n}`, `PWM{n}`, …)
+- Podgląd canvas + tabela pozycji przed zatwierdzeniem
+
+#### Analiza długości ścieżek / Pary różnicowe (Ctrl+Shift+E)
+Trzy zakładki:
+- **Długości ścieżek** — sortowalna tabela wszystkich sieci: długość [mm], liczba ścieżek, śr. szerokość, warstwy, opóźnienie [ps] przy zadanym Er
+- **Pary różnicowe** — auto-detekcja par P/N (+/−, DP/DN) z mismatching [mm] i [ps], threshold tolerancji
+- **Analizy krytyczne** — raport tekstowy: najdłuższe ścieżki, sumaryczna długość, pary poza tolerancją
+
+#### Testy jednostkowe (35 nowych testów)
+Pokrycie modułów v0.4: `test_new_modules.py` — power analysis, DFM checker, auto-annotation, netlist generator, stackup impedance, signal analysis, board outline (35 testów, 64 łącznie).
+
+#### Poprawki błędów
+- `component.component_type`: sprawdzenie `LED` teraz wyprzedza `L` (inductor) — `LED1` nie był już klasyfikowany jako cewka
+- `_parse_capacitance_uf`: 1 mF → 1000 µF (nie 1 000 000 µF)
+- `calc_via_inductance_nh`: stała IPC-2141A (5.08) dotyczy cali — podzielono przez 25.4 dla wejść mm → prawidłowy wynik ~1.3 nH zamiast ~0.033 nH
+
+---
+
 ## v0.4.0 — 2026-06-15
 
 ### Co nowego
