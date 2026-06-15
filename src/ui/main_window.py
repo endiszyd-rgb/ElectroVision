@@ -283,6 +283,11 @@ class MainWindow(QMainWindow):
         act_array.triggered.connect(self._open_array)
         tools_menu.addAction(act_array)
 
+        act_tlen = QAction("📏 Analiza długości ścieżek / pary diff…", self)
+        act_tlen.setShortcut(QKeySequence("Ctrl+Shift+E"))
+        act_tlen.triggered.connect(self._open_trace_length)
+        tools_menu.addAction(act_tlen)
+
         # ── Projekt ───────────────────────────────────────────────────────────
         project_menu = mb.addMenu("&Projekt")
 
@@ -791,6 +796,11 @@ class MainWindow(QMainWindow):
         from src.ui.dialogs.net_topology_dialog import NetTopologyDialog
         dlg = NetTopologyDialog(self._project, self)
         dlg.component_selected.connect(self._on_net_highlight)
+        dlg.exec()
+
+    def _open_trace_length(self) -> None:
+        from src.ui.dialogs.trace_length_dialog import TraceLengthDialog
+        dlg = TraceLengthDialog(self._project, self)
         dlg.exec()
 
     def _open_array(self) -> None:
