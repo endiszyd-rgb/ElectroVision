@@ -812,18 +812,40 @@ class PCBEditorPanel(QWidget):
         self._status_bar.setText(msg)
 
     def _update_stats(self) -> None:
+        import math
+        from collections import Counter
         board = self._project.board
         if not board:
             self._stat_label.setText("—")
             return
+
+        area = board.width_mm * board.height_mm
+        density = len(board.components) / area * 100 if area > 0 else 0
+
+        trace_len = sum(
+            math.hypot(t.x2 - t.x1, t.y2 - t.y1) for t in board.traces
+        )
+        types = Counter(c.component_type for c in board.components)
+        type_parts = "  ".join(f"{v}× {k[:3]}" for k, v in sorted(types.items(), key=lambda x: -x[1])[:5])
+
+        widths = [t.width for t in board.traces] if board.traces else [0]
+        min_w = min(widths); max_w = max(widths)
+
+        layers_used = {t.layer for t in board.traces} | {c.layer for c in board.components}
+
         self._stat_label.setText(
-            f"<b>Wymiary:</b> {board.width_mm:.2f}×{board.height_mm:.2f} mm<br>"
-            f"<b>Komponenty:</b> {len(board.components)}<br>"
-            f"<b>Ścieżki:</b> {len(board.traces)}<br>"
+            f"<b>Wymiary:</b> {board.width_mm:.2f}×{board.height_mm:.2f} mm "
+            f"({area:.1f} mm²)<br>"
+            f"<b>Komponenty:</b> {len(board.components)}  "
+            f"<span style='color:#aaa;font-size:10px'>{type_parts}</span><br>"
+            f"<b>Gęstość:</b> {density:.2f} komp/cm²<br>"
+            f"<b>Ścieżki:</b> {len(board.traces)}  "
+            f"(łącznie {trace_len:.1f} mm)<br>"
+            f"<b>Szer. ścieżek:</b> {min_w:.3f}–{max_w:.3f} mm<br>"
             f"<b>Przelotki:</b> {len(board.vias)}<br>"
             f"<b>Sieci:</b> {len(board.nets)}<br>"
             f"<b>Strefy Cu:</b> {len(board.zones)}<br>"
-            f"<b>Warstwy:</b> {len(board.layers)}"
+            f"<b>Warstwy aktywne:</b> {len(layers_used)}/{len(board.layers)}"
         )
 
     # ── Export ────────────────────────────────────────────────────────────────

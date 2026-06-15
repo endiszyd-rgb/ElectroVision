@@ -1,13 +1,13 @@
 # ElectroVision
 
-Desktopowa aplikacja do projektowania elektroniki PCB z lokalnym AI (Ollama), interaktywnym edytorem płytki, wizualizacją 3D, generatorem kodu MCU i eksportem STL/STEP obudów.
+Desktopowa aplikacja do projektowania elektroniki PCB z lokalnym AI (Ollama), interaktywnym edytorem płytki, wizualizacją 3D, generatorem kodu MCU, eksportem STL/STEP obudów oraz zestawem narzędzi analizy elektronicznej.
 
 ---
 
 ## Szybki start
 
 ```bash
-# Jednoklikowe uruchomienie (Windows) — instaluje venv, deps, uruchamia Ollama + aplikację
+# Jednoklikowe uruchomienie (Windows)
 start.bat
 
 # Lub ręcznie:
@@ -19,95 +19,175 @@ Wymaga:
 - **Python 3.10+** (zalecany 3.11 lub 3.12)
 - **[Ollama](https://ollama.ai)** — `ollama serve` + `ollama pull llama3`
 
-Opcjonalnie:
-- KiCad 7/8 — import/eksport `.kicad_pcb` / `.kicad_sch`
-- PrusaSlicer / Cura — otwieranie wygenerowanych plików STL
-- Arduino IDE — wgrywanie wygenerowanego kodu
+Opcjonalnie: KiCad 7/8 · PrusaSlicer/Cura · Arduino IDE
 
 ---
 
 ## Możliwości
 
 ### Edytor PCB (interaktywny)
-- Tryby: **Wybierz / Trasuj / Przelotka / Usuń / Strefa miedzi / Umieść komponent**
-- Skróty: `S` Wybierz · `R` Trasuj · `V` Przelotka · `X` Usuń · `Z` Strefa · `N` Ratsnest · `Space` Obróć · `M` Lustro · `F` Dopasuj widok · `Ctrl+Z/Y` Cofnij/Ponów
-- Widoczność warstw (checkboxy per warstwa + „Wszystkie" / „Tylko Cu")
-- Ratsnest (brakujące połączenia) z przełącznikiem
-- Strefy miedzi (copper pour) z obsługą sieci
-- Znajdź komponent: **Ctrl+F** → pole wyszukiwania + lista
-- **Dwuklik na komponent → dialog właściwości** (ref, wartość, footprint, XY, rotacja, warstwa)
-- **Nakładka DRC** — po walidacji błędy wyświetlają się jako czerwone X bezpośrednio na płytce
-- Biblioteka komponentów (rezystory, kondensatory, LED, złącza, MCU, tranzystory, kryształy)
-- Wyrównanie i rozmieszenie komponentów
+- Tryby: **Wybierz / Trasuj / Przelotka / Usuń / Strefa miedzi / Umieść komponent / Pomiar**
+- Skróty: `S` Wybierz · `R` Trasuj · `V` Przelotka · `X` Usuń · `Z` Strefa · `T` Pomiar · `Space` Obróć · `M` Lustro · `F` Dopasuj · `Ctrl+D` Duplikuj · `Ctrl+Z/Y` Cofnij/Ponów
+- Biblioteka komponentów: R, C, LED, diody, złącza, MCU, tranzystory, kryształy, drivery
+- Warstwy: widoczność per warstwa, tylko Cu, wszystkie
+- Ratsnest (brakujące połączenia), copper pour (strefy miedzi)
+- **Dwuklik na komponent** → dialog właściwości (ref, wartość, footprint, XY, rotacja, warstwa, ±90°, mirror)
+- **Klik ścieżki** → pokazuje długość, impedancję Z₀ (IPC-2141A), maks. prąd (IPC-2221)
+- **Narzędzie pomiaru (T)** — mierzy odległość między dwoma punktami na płytce
+- **Nakładka DRC** — błędy wyświetlane jako czerwone X bezpośrednio na edytorze
+- Historia cofnij/ponów z opisami komend
+- Snap-to-grid (siatka konfigurowalna)
+- Statystyki płytki: wymiary, gęstość komponentów, łączna długość ścieżek, aktywne warstwy
 - Eksport do `.kicad_pcb`
 
-### AI — Generator projektu PCB
-- Opisz słowami: *„Sterownik silnika DC 12V, ESP32, zabezpieczenie przetężeniowe, 4 enkodery"*
-- AI (Ollama) generuje projekt z komponentami, sieciami i układem — gotowy do edycji
+### Narzędzia analizy elektronicznej (menu Narzędzia)
 
-### AI — Designer obudowy STL/STEP
-- Opisz obudowę: *„IP54, montaż na szynę DIN, otwory USB-C i DC jack"*
-- AI generuje kod Python (trimesh/CadQuery), wykonuje go w sandboxie, pokazuje podgląd STL
-- 6 wbudowanych szablonów: standardowa drukowana, IP65 zewnętrzna, szyna DIN, rack 1U i inne
+#### Kalkulator elektroniczny (Ctrl+K)
+- Microstrip / stripline impedancja (IPC-2141A, 5 zakładek)
+- Prąd ścieżki (IPC-2221 krzywe A/B, zewnętrzna/wewnętrzna)
+- Filtr RC — częstotliwość odcięcia
+- Dzielnik napięcia
+- Rezystor LED z doborem wartości E24
+
+#### Analiza zasilania (Ctrl+Shift+W)
+- Detekcja szyn zasilania z nazw sieci (VCC, 3.3V, VDD, VBUS, …)
+- Szacowanie poboru prądu per komponent (30+ typów z bazy)
+- Budżet mocy: prąd, moc, napięcie, liczba komponentów per rail
+- Sprawdzenie kondensatorów blokujących i bulk
+- Zalecenia: regulator, kondensatory, minimalna szerokość ścieżki
+- Eksport raportu TXT
+
+#### Estymacja termiczna (Ctrl+Shift+T)
+- Temperatura złącza T_j = T_amb + θ_JA × P dla każdego komponentu
+- Baza θ_JA dla 15+ popularnych pakietów i IC
+- Współczynnik chłodzenia (konwekcja naturalna, wentylator, plane miedzi)
+- Progi: OK / Podwyższony / Wysoki / KRYTYCZNY
+- Eksport raportu TXT
+
+#### Analiza sygnałowa / SI
+- Opóźnienie propagacji i krytyczna długość ścieżki (λ/4 rule)
+- Efektywne pasmo z czasu narastania (BW = 0.35/Tr)
+- Przesłuch NEXT (reguła 3W, coupling coefficient)
+- Indukcyjność przelotki (IPC-2141A)
+- Skanowanie ścieżek projektu vs krytyczna długość przy danej częstotliwości
+
+#### Edytor stosu warstw (Ctrl+Shift+L)
+- Szablony: 2-warstwowa / 4-warstwowa / 6-warstwowa (FR4, JLC)
+- Wizualny przekrój poprzeczny stosu z skalą grubości
+- Dodawanie/usuwanie/przesuwanie warstw
+- Kalkulator impedancji microstrip i stripline per warstwa
+- Solver szerokości dla zadanej impedancji docelowej (np. 50 Ω)
+- Kolor wskaźnika: zielony (±5 Ω od celu) / żółty (±15 Ω) / czerwony
+- Eksport stackupu do TXT
+
+#### Wyszukiwarka komponentów (Ctrl+F)
+- Lokalna baza 30+ popularnych komponentów (R, C, LED, IC, złącza, …)
+- Filtrowanie po kategorii i frazie
+- Linki do sklepów: LCSC (direct), DigiKey, Mouser, TME, Botland
+- Dodaj do projektu jednym kliknięciem (auto-generacja referencji)
+
+### AI — Generator projektu PCB
+- Opisz słowami: *„Sterownik silnika DC 12V, ESP32, zabezpieczenie przetężeniowe"*
+- AI (Ollama) generuje projekt z komponentami, sieciami i układem
+
+### AI — Designer obudowy STL
+- Opisz obudowę: *„IP54, montaż na szynę DIN, otwory USB-C"*
+- AI generuje kod trimesh/CadQuery, wykonuje w sandboxie, pokazuje podgląd
 
 ### Przeglądarka PCB 2D / 3D
 - Render 2D — QPainter, wszystkie warstwy KiCad z kolorami, zoom/pan
-- Render 3D — Three.js w WebEngine **lub** soft-renderer QPainter (bez WebEngine)
+- Render 3D — Three.js w WebEngine lub soft-renderer QPainter
 
 ### Schemat
 - Parser `.kicad_sch` (KiCad 6/7/8)
-- Podgląd symboli, sieci, oznaczeń
+- Podgląd symboli, sieci, oznaczeń z renderem QPainter
 
 ### BOM — Lista komponentów
-- Grupowanie (wartość + footprint), eksport CSV / Excel / PDF
-- Filtrowanie po typie
+- Grupowanie (wartość + footprint), eksport CSV / Excel / HTML / PDF
+- **LCSC CSV** — gotowy do zamówienia SMT na JLCPCB
+- Klik w BOM → highlight komponentu na edytorze PCB
+- AI: analiza, zamienniki, szacowanie kosztów, sprawdzenie braków
 
 ### Generator kodu MCU
 - Arduino (`.ino`), MicroPython (`.py`), C++/ESP-IDF (`.cpp`)
-- Automatyczna detekcja komponentów (ESP32, BME280, SSD1306, NeoPixel, …)
-- Szablony Jinja2 z importami, inicjalizacją i przykładowym pętlą
+- Automatyczna detekcja: ESP32, BME280, SSD1306, NeoPixel, MPU-6050, …
+- Szablony Jinja2 z importami, inicjalizacją i przykładową pętlą
 
 ### STL / STEP — Generator obudów
 - Generacja obudowy (dno + wieko) dopasowanej do PCB
 - Automatyczne otwory na złącza (USB-C, DC Jack, JST, przyciski)
-- Wysokość obudowy z bazy danych komponentów (50+ typów)
-- Eksport `.stl` (trimesh) + `.step` (CadQuery gdy dostępny)
-- Przeglądarka 3D wbudowana (WebEngine lub soft-renderer)
+- Eksport `.stl` + `.step` (CadQuery opcjonalnie)
+- Wbudowana przeglądarka 3D
 
-### Walidacja DRC + STL
+### Eksport produkcyjny
+- **Gerber + Drill** (Ctrl+G)
+- **JLCPCB/PCBWay ZIP** (Ctrl+Shift+G) — Gerber + BOM CSV + CPL CSV
+- **Netlist CSV** — per pad (Net, Component, Pin, X_mm, Y_mm)
+- **Netlist KiCad (.net)** — bracket notation
+- **PDF** — BOM, kosztorys, pełny raport projektu (Ctrl+P)
+
+### Walidacja DRC
 - DRC: szerokość ścieżek, prześwity, przelotki, zduplikowane refy, otwór, strefy
 - STL: grubość ścianek, kąty nawisu, manifold geometry
 - Wyjaśnienia AI: *„Wyjaśnij błąd"* / *„Plan naprawy krok po kroku"*
-- **Błędy DRC widoczne bezpośrednio na edytorze PCB** (czerwone X z opisem)
+- Błędy widoczne bezpośrednio na edytorze PCB
 
 ### Trasowanie AI
 - Sugestie rozmieszczenia + routingu generowane przez Ollama
 - Zintegrowany DRC po trasowaniu
 
 ### Koszty
-- Kosztorys komponentów z bazą LCSC
-- Eksport PDF raportu kosztów
+- Kosztorys z bazą LCSC, waluta USD/PLN/EUR, ilość szt.
+- Eksport PDF / CSV
 
 ### Net Inspector
-- Wizualizacja połączeń sieciowych
-- Klik na sieć → highlight ścieżek i komponentów w edytorze
+- Drzewo sieci elektrycznych z liczbą komponentów i padów
+- Statystyki sieci, klik → highlight w edytorze PCB
+- AI analiza sieci
 
 ### AI Asystent (RAG)
 - Lokalny LLM przez Ollama (Llama 3, Mistral, CodeLlama, Qwen2)
 - Baza wiedzy PCB/STL aktualizowana z GitHub i stron spec
 - Nauka z URL / PDF / wklejonego tekstu
-- Kontekst projektu (rozmiary płytki, komponenty) przekazywany automatycznie
 
 ### Chmura / Git
 - Push/pull GitHub (token PAT)
 - Sync z Google Drive (OAuth2)
 - Lokalny serwer projektów (Flask REST API)
 
-### Ustawienia (Ctrl+,)
-- Model Ollama, host, timeout
-- Progi DRC (szerokość ścieżek, prześwity, przelotki)
-- Domyślne parametry edytora (szerokość ścieżki, siatka, via)
-- Motyw, język, autosave
+### Autosave
+- Automatyczny zapis co 5 minut (konfigurowalne) do `~/.electrovision_autosave/`
+- Status Ollama w pasku statusu (🟢 / 🔴)
+
+---
+
+## Skróty klawiszowe
+
+| Skrót | Akcja |
+|---|---|
+| `Ctrl+O` | Importuj KiCad PCB |
+| `Ctrl+S` | Zapisz projekt |
+| `Ctrl+P` | Eksport PDF |
+| `Ctrl+G` | Gerber + Drill |
+| `Ctrl+Shift+G` | JLCPCB ZIP |
+| `Ctrl+K` | Kalkulator elektroniczny |
+| `Ctrl+Shift+W` | Analiza zasilania |
+| `Ctrl+Shift+T` | Estymacja termiczna |
+| `Ctrl+Shift+L` | Edytor stackupu |
+| `Ctrl+F` | Wyszukaj komponent |
+| `Ctrl+,` | Ustawienia |
+| `Alt+1–9` | Przełącz zakładki |
+| `S` | Tryb Wybierz |
+| `R` | Tryb Trasuj |
+| `V` | Przelotka |
+| `X` | Usuń |
+| `Z` | Strefa miedzi |
+| `T` | Narzędzie pomiaru |
+| `Space` | Obróć komponent |
+| `M` | Mirror (odbicie) |
+| `F` | Dopasuj widok |
+| `Ctrl+D` | Duplikuj komponent |
+| `Ctrl+Z/Y` | Cofnij / Ponów |
 
 ---
 
@@ -119,63 +199,43 @@ ElectroVision/
 ├── start.bat                   # Jednoklikowe uruchomienie (Windows)
 ├── requirements.txt
 ├── src/
-│   ├── app.py                  # QApplication + dark theme
 │   ├── ui/
-│   │   ├── main_window.py      # Główne okno, menu, zakładki, Ollama indicator
+│   │   ├── main_window.py
 │   │   ├── dialogs/
-│   │   │   ├── ai_project_dialog.py      # AI PCB generator
-│   │   │   ├── ai_stl_dialog.py          # AI STL designer
-│   │   │   ├── component_props_dialog.py # Edycja właściwości komponentu
-│   │   │   ├── settings_dialog.py        # Ustawienia aplikacji
-│   │   │   ├── template_dialog.py        # Wybór szablonu projektu
-│   │   │   └── ollama_error_dialog.py    # Diagnostyka Ollama
+│   │   │   ├── ai_project_dialog.py
+│   │   │   ├── ai_stl_dialog.py
+│   │   │   ├── component_props_dialog.py
+│   │   │   ├── component_search_dialog.py  # Wyszukiwarka komponentów + sklepy
+│   │   │   ├── electronics_calc_dialog.py  # Kalkulator (microstrip, IPC-2221, RC, …)
+│   │   │   ├── power_analysis_dialog.py    # Analiza zasilania
+│   │   │   ├── thermal_dialog.py           # Estymacja termiczna T_j
+│   │   │   ├── signal_analysis_dialog.py   # SI: propagacja, crosstalk, via
+│   │   │   ├── stackup_editor_dialog.py    # Edytor stosu warstw + Z0
+│   │   │   ├── settings_dialog.py
+│   │   │   └── template_dialog.py
 │   │   ├── panels/
-│   │   │   ├── pcb_editor_panel.py       # Edytor PCB + panel warstw/find
-│   │   │   ├── pcb_viewer_panel.py       # Przeglądarka 2D/3D
+│   │   │   ├── pcb_editor_panel.py         # Edytor + właściwości + historia
 │   │   │   ├── bom_panel.py
-│   │   │   ├── code_gen_panel.py
-│   │   │   ├── stl_gen_panel.py          # Generator STL + AI Designer
-│   │   │   ├── schematic_panel.py
-│   │   │   ├── routing_panel.py
-│   │   │   ├── cost_panel.py
-│   │   │   ├── net_inspector_panel.py
 │   │   │   ├── validation_panel.py
-│   │   │   ├── components_panel.py
-│   │   │   ├── ai_panel.py
-│   │   │   ├── cloud_panel.py
-│   │   │   └── url_learning_panel.py
+│   │   │   ├── net_inspector_panel.py
+│   │   │   ├── cost_panel.py
+│   │   │   ├── routing_panel.py
+│   │   │   └── ...
 │   │   └── widgets/
-│   │       ├── pcb_editor.py             # Canvas edytora PCB (QPainter)
-│   │       ├── pcb_2d_view.py
-│   │       ├── pcb_3d_view.py            # Three.js lub soft-renderer
-│   │       ├── stl_3d_view.py            # STL przeglądarka
-│   │       └── component_table.py
-│   ├── core/
-│   │   ├── models/             # PCBBoard, Component, Layer, Net, CopperZone
-│   │   ├── parsers/            # KiCad PCB + schematic parser
-│   │   ├── project.py
-│   │   └── project_io.py       # Zapis/odczyt .evproj (JSON)
+│   │       ├── pcb_editor.py               # Canvas QPainter — tryby, undo, DRC overlay
+│   │       └── ...
 │   ├── generators/
-│   │   ├── bom_generator.py
-│   │   ├── code_generator.py
-│   │   ├── stl_generator.py    # Obudowy STL/STEP z bazy komponentów
-│   │   ├── gerber_generator.py # Gerber + Drill
-│   │   ├── kicad_generator.py  # Eksport .kicad_pcb
-│   │   └── pdf_generator.py    # Raporty PDF
+│   │   ├── jlcpcb_generator.py             # JLCPCB ZIP (Gerber + BOM + CPL)
+│   │   ├── netlist_generator.py            # CSV + KiCad .net
+│   │   ├── gerber_generator.py
+│   │   ├── pdf_generator.py
+│   │   └── ...
 │   ├── validators/
-│   │   ├── pcb_drc.py          # DRC: ścieżki, prześwity, przelotki
+│   │   ├── pcb_drc.py
 │   │   └── stl_validator.py
-│   ├── ai/
-│   │   ├── bridge.py           # Fasada do Ollama
-│   │   ├── ollama_utils.py     # is_ollama_running(), list_models()
-│   │   ├── prompts/            # Systemowe prompty (.txt)
-│   │   ├── knowledge/          # Baza wiedzy PCB/STL
-│   │   ├── rag/                # Retrieval-Augmented Generation
-│   │   └── agents/             # Agenci AI (PCB, STL, Kod)
-│   └── cloud/
-│       ├── github/
-│       ├── gdrive/
-│       └── server/             # REST client dla lokalnego serwera
+│   └── ai/
+│       ├── bridge.py
+│       └── ...
 └── tests/
 ```
 
@@ -184,48 +244,31 @@ ElectroVision/
 ## Konfiguracja AI (Ollama)
 
 ```bash
-# Zainstaluj Ollama
-# Windows: https://ollama.ai → Download
 ollama serve
-ollama pull llama3        # domyślny model
-# opcjonalnie:
-ollama pull codellama     # lepszy do generowania kodu
+ollama pull llama3        # domyślny
+ollama pull codellama     # lepszy do kodu
 ollama pull qwen2         # alternatywa
 ```
 
-W aplikacji: **Ctrl+,** → zakładka AI/Ollama → zmień model/host.
-
-Status Ollama widoczny w pasku statusu (🟢 / 🔴).
-
----
-
-## Format projektu (.evproj)
-
-Plik JSON zawierający:
-- Metadane projektu (nazwa, data, wersja)
-- `board` — pełna struktura PCBBoard (komponenty, ścieżki, przelotki, warstwy, sieci, strefy miedzi)
-
-Eksport dodatkowy: Gerber (`Ctrl+G`), PDF raport (`Ctrl+P`), `.kicad_pcb`.
+W aplikacji: **Ctrl+,** → AI/Ollama → model/host.
 
 ---
 
 ## Zależności
 
 | Biblioteka | Cel |
-|-----------|-----|
+|---|---|
 | `PySide6>=6.8` | GUI Qt6 |
-| `sexpdata` | Parser KiCad S-expression |
-| `trimesh + numpy` | STL generator + przeglądarka |
+| `sexpdata` | Parser KiCad |
+| `trimesh + numpy` | STL generator |
 | `Jinja2` | Szablony kodu MCU |
 | `pandas + openpyxl` | BOM Excel |
 | `ollama` | Lokalny AI client |
 | `flask` | Serwer projektów |
-| `PyGithub` | GitHub API |
-| `google-api-python-client` | Google Drive |
 | `reportlab` | Eksport PDF |
 
-> CadQuery (`cadquery>=2.4`) — opcjonalnie (Python ≤3.12), dla eksportu STEP.  
-> PySide6-WebEngine — opcjonalnie, dla renderera 3D Three.js (Python ≤3.12).
+> CadQuery — opcjonalnie (STEP export).  
+> PySide6-WebEngine — opcjonalnie (3D Three.js renderer).
 
 ---
 
@@ -234,9 +277,3 @@ Eksport dodatkowy: Gerber (`Ctrl+G`), PDF raport (`Ctrl+P`), `.kicad_pcb`.
 ```bash
 pytest tests/ -v
 ```
-
----
-
-## Licencja
-
-MIT
