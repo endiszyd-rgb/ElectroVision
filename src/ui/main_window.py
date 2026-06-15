@@ -248,6 +248,11 @@ class MainWindow(QMainWindow):
         act_comp_search.triggered.connect(self._open_comp_search)
         tools_menu.addAction(act_comp_search)
 
+        act_wave = QAction("📈 Symulator przebiegów RC/RL/LC…", self)
+        act_wave.setShortcut(QKeySequence("Ctrl+Shift+R"))
+        act_wave.triggered.connect(self._open_waveform)
+        tools_menu.addAction(act_wave)
+
         # ── Projekt ───────────────────────────────────────────────────────────
         project_menu = mb.addMenu("&Projekt")
 
@@ -720,6 +725,11 @@ class MainWindow(QMainWindow):
         from src.ui.dialogs.component_search_dialog import ComponentSearchDialog
         dlg = ComponentSearchDialog(self._project, self)
         dlg.component_add_requested.connect(self._on_comp_added_from_search)
+        dlg.exec()
+
+    def _open_waveform(self) -> None:
+        from src.ui.dialogs.waveform_dialog import WaveformDialog
+        dlg = WaveformDialog(self._project, self)
         dlg.exec()
 
     def _on_comp_added_from_search(self, comp) -> None:
