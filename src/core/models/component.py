@@ -38,12 +38,12 @@ class Component:
             return "resistor"
         if ref.startswith("C"):
             return "capacitor"
+        if ref.startswith("LED"):
+            return "led"
         if ref.startswith("L"):
             return "inductor"
         if ref.startswith("D"):
             return "diode"
-        if ref.startswith("LED"):
-            return "led"
         if ref.startswith("Q"):
             return "transistor"
         if ref.startswith("U"):

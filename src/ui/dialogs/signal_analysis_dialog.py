@@ -66,7 +66,7 @@ def calc_via_inductance_nh(via_height_mm: float, via_drill_mm: float) -> float:
     d = via_drill_mm
     if d <= 0 or h <= 0:
         return 0.0
-    return 5.08e-3 * h * (math.log(4 * h / d) + 1)  # nH
+    return (5.08 / 25.4) * h * (math.log(4 * h / d) + 1)  # nH (IPC-2141A, h/d in mm)
 
 
 def calc_via_reactance_ohm(via_height_mm: float, via_drill_mm: float,

@@ -169,7 +169,7 @@ def _parse_capacitance_uf(value: str) -> float:
     if "UF" in unit or unit == "U":
         return num
     if "MF" in unit or unit == "M":
-        return num * 1e6
+        return num * 1000.0  # millifarad → microfarad
     if "NF" in unit or unit == "N":
         return num / 1000.0
     if "PF" in unit or unit == "P":
