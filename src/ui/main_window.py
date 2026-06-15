@@ -273,6 +273,11 @@ class MainWindow(QMainWindow):
         act_pinmap.triggered.connect(self._open_pin_map)
         tools_menu.addAction(act_pinmap)
 
+        act_topo = QAction("🕸 Topologia sieci (graf połączeń)…", self)
+        act_topo.setShortcut(QKeySequence("Ctrl+Shift+Y"))
+        act_topo.triggered.connect(self._open_net_topology)
+        tools_menu.addAction(act_topo)
+
         # ── Projekt ───────────────────────────────────────────────────────────
         project_menu = mb.addMenu("&Projekt")
 
@@ -775,6 +780,12 @@ class MainWindow(QMainWindow):
         from src.ui.dialogs.pin_map_dialog import PinMapDialog
         dlg = PinMapDialog(self._project, comp, self)
         dlg.net_highlight_requested.connect(self._on_net_highlight)
+        dlg.exec()
+
+    def _open_net_topology(self) -> None:
+        from src.ui.dialogs.net_topology_dialog import NetTopologyDialog
+        dlg = NetTopologyDialog(self._project, self)
+        dlg.component_selected.connect(self._on_net_highlight)
         dlg.exec()
 
     def _on_comp_added_from_search(self, comp) -> None:
