@@ -329,6 +329,18 @@ class MainWindow(QMainWindow):
         act_sym.triggered.connect(self._open_symbol_wizard)
         tools_menu.addAction(act_sym)
 
+        tools_menu.addSeparator()
+
+        act_tp = QAction("📍 Menedżer punktów testowych (ICT / Flying Probe)…", self)
+        act_tp.setShortcut(QKeySequence("Ctrl+Shift+I"))
+        act_tp.triggered.connect(self._open_test_points)
+        tools_menu.addAction(act_tp)
+
+        act_drc_prof = QAction("🏭 Profile reguł DRC (JLCPCB / PCBWay / OSH Park…)…", self)
+        act_drc_prof.setShortcut(QKeySequence("Ctrl+Shift+Q"))
+        act_drc_prof.triggered.connect(self._open_drc_profiles)
+        tools_menu.addAction(act_drc_prof)
+
         # ── Projekt ───────────────────────────────────────────────────────────
         project_menu = mb.addMenu("&Projekt")
 
@@ -874,6 +886,20 @@ class MainWindow(QMainWindow):
             self.statusBar().showMessage(f"Dodano {len(lst)} komponentów z tablicy.")
         ))
         dlg.exec()
+
+    def _open_test_points(self) -> None:
+        from src.ui.dialogs.test_points_dialog import TestPointsDialog
+        if not self._check_board():
+            return
+        dlg = TestPointsDialog(self._project, self)
+        if dlg.exec():
+            self.project_changed.emit(self._project)
+
+    def _open_drc_profiles(self) -> None:
+        from src.ui.dialogs.drc_profiles_dialog import DRCProfilesDialog
+        dlg = DRCProfilesDialog(self._project, self)
+        dlg.exec()
+        self.statusBar().showMessage("Profil DRC zaktualizowany.")
 
     def _open_copper_pour(self) -> None:
         from src.ui.dialogs.copper_pour_dialog import CopperPourDialog

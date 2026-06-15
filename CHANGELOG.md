@@ -1,5 +1,40 @@
 # ElectroVision — Changelog / Blog
 
+## v0.8.0 — 2026-06-15
+
+### Co nowego
+
+#### Menedżer punktów testowych — ICT / Flying Probe (Ctrl+Shift+I)
+- Automatyczne wykrywanie TP* / TEST* komponentów na płytce
+- Raport pokrycia sieci: % sieci z punktem testowym, lista sieci bez TP
+- Mapa QPainter: wszystkie TP zaznaczone na układzie płytki (front=zielony, back=czerwony)
+- Podświetlanie wybranej sieci na mapie przy kliknięciu TP w tabeli
+- Dodawanie nowych TP przez formularz (ref, sieć, X/Y, strona, średnica)
+- Usuwanie TP z projektu bezpośrednio z listy
+- Eksport CSV dla testera latającego (format Spea/GenRad/Takaya): ref, net, X, Y, strona, śr.
+
+#### Profile reguł DRC — presety fabrykatów (Ctrl+Shift+Q)
+9 wbudowanych profili z rzeczywistymi wymaganiami:
+- **JLCPCB Standard** — 5/5 mil (0.127 mm), via ≥0.3 mm
+- **JLCPCB Advanced (HDI)** — 3/3 mil (0.075 mm), laser via ≥0.1 mm
+- **PCBWay Standard** — 4 mil (0.1 mm), via ≥0.3 mm
+- **PCBWay Advanced (HDI)** — 2 mil (0.05 mm), microvia ≥0.1 mm
+- **OSH Park** — 5 mil, drill ≥10 mil (0.254 mm), USA
+- **Eurocircuits Standard** — 4 mil, certyfikat UL/REACH/RoHS
+- **ITead/Seeed Standard** — 6 mil, 10 kolorów soldermask
+- **Hobbyist** / **Profesjonalny** — liberalne/restrykcyjne reguły ogólne
+
+Funkcje: jednym kliknięciem zastosuj profil do projektu (aktualizuje PCBValidator), porównanie z bieżącymi ustawieniami DRC, eksport/import JSON, duplikowanie i edycja profili
+
+#### Testy (31 nowych)
+- `TestIsTestPoint` — detekcja TP/TEST prefix
+- `TestScanTestPoints` — zbieranie TP z boardu, pozycje, sieci
+- `TestCoverageReport` — pokrycie sieci, F/B count, lista niepokrytych
+- `TestExportCSV` — header, liczba wierszy, sortowanie po ref
+- `TestDRCProfile` — serialization, check_vs_profile, JSON roundtrip
+- `TestBuiltinProfiles` — count, JLCPCB reguły, Advanced < Standard
+- Łącznie: 175 testów
+
 ## v0.7.0 — 2026-06-15
 
 ### Co nowego
