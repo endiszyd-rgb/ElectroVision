@@ -348,6 +348,11 @@ class MainWindow(QMainWindow):
         act_stl3d.triggered.connect(self._open_descriptive_stl)
         tools_menu.addAction(act_stl3d)
 
+        act_autoroute = QAction("🤖 Auto-routing (A*/Lee, F.Cu+B.Cu)…", self)
+        act_autoroute.setShortcut(QKeySequence("Ctrl+Shift+2"))
+        act_autoroute.triggered.connect(self._open_autorouter)
+        tools_menu.addAction(act_autoroute)
+
         # ── Projekt ───────────────────────────────────────────────────────────
         project_menu = mb.addMenu("&Projekt")
 
@@ -913,6 +918,14 @@ class MainWindow(QMainWindow):
         dlg = DescriptiveSTLDialog(self._project, self)
         dlg.exec()
 
+    def _open_autorouter(self) -> None:
+        from src.ui.dialogs.autorouter_dialog import AutorouterDialog
+        if not self._check_board():
+            return
+        dlg = AutorouterDialog(self._project, self)
+        if dlg.exec():
+            self.project_changed.emit(self._project)
+
     def _open_copper_pour(self) -> None:
         from src.ui.dialogs.copper_pour_dialog import CopperPourDialog
         if not self._check_board():
@@ -1031,6 +1044,7 @@ class MainWindow(QMainWindow):
             "<tr><td><b>Ctrl+Shift+I</b></td><td>Menedżer punktów testowych (ICT/flying probe)</td></tr>"
             "<tr><td><b>Ctrl+Shift+Q</b></td><td>Profile reguł DRC (JLCPCB, PCBWay, OSH Park…)</td></tr>"
             "<tr><td><b>Ctrl+Shift+3</b></td><td>Opisowe tworzenie obiektów 3D / eksport STL</td></tr>"
+            "<tr><td><b>Ctrl+Shift+2</b></td><td>Auto-routing (A*/Lee, F.Cu+B.Cu)</td></tr>"
             "<tr><td><b>Scroll</b></td><td>Zoom w widokach 2D/3D/Edytor</td></tr>"
             "<tr><td><b>PPM / Środkowy</b></td><td>Przesuń widok</td></tr>"
             "</table>"

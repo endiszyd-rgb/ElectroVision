@@ -12,8 +12,7 @@ from PySide6.QtWidgets import (
     QAbstractItemView
 )
 from PySide6.QtCore import Qt, Slot, Signal
-from PySide6.QtGui import QFont, QColor, QIcon, QKeySequence, QAction
-from PySide6.QtWidgets import QShortcut
+from PySide6.QtGui import QFont, QColor, QIcon, QKeySequence, QAction, QShortcut
 
 from src.core.project import Project
 from src.core.models.component import Component

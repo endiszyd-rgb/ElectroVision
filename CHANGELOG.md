@@ -1,5 +1,59 @@
 # ElectroVision — Changelog / Blog
 
+## v0.10.0 — 2026-06-16
+
+### Co nowego
+
+#### Autorouter — automatyczne trasowanie ścieżek (Ctrl+Shift+2)
+Nowy moduł `src/algorithms/autorouter.py`: silnik trasowania na siatce 2-warstwowej
+(F.Cu/B.Cu) algorytmem A* (odmiana algorytmu Lee/wave-propagation):
+- `collect_unrouted_nets(board)` — wykrywa sieci niepołączone w pełni (heurystyka: liczność
+  segmentów ścieżek < N-1 dla N padów sieci)
+- `RouteGrid` / `build_grid_from_board()` — siatka z przeszkodami z istniejących padów
+  (uwzględnia rotację komponentu), ścieżek i przelotek; pady przewlekane blokują obie warstwy
+- `route_two_points()` — A* z 8 kierunkami ruchu na warstwie + przejście międzywarstwowe (via)
+  z karą kosztową, żeby preferować trasowanie na jednej warstwie
+- `route_net()` — łączy wielopadowe sieci metodą Prima (MST): dołącza najbliższy niepołączony
+  pad jeden po drugim, blokując już ułożone ścieżki jako przeszkody dla kolejnych segmentów
+- `autoroute_board()` — trasuje całą płytkę, sieci sortowane od najprostszych (najmniej padów),
+  zwraca `AutorouteResult` z listą trasowanych/nieudanych sieci i sumaryczną długością
+- `src/ui/dialogs/autorouter_dialog.py` — dialog z podglądem przed zastosowaniem: parametry
+  (rozmiar siatki, szerokość ścieżki, prześwit, wiertło/średnica przelotki, limit sieci),
+  generowanie w wątku tła, tabela wynikowa per sieć (✓/✗), przycisk „Zastosuj do projektu"
+
+#### Naprawiono
+- Błąd importu `QShortcut` (`PySide6.QtWidgets` → `PySide6.QtGui` w Qt6) w
+  `src/ui/panels/pcb_editor_panel.py`, który blokował uruchomienie całej aplikacji
+
+#### Testy (46 nowych)
+- `TestPadWorldPos` — pozycja pada z uwzględnieniem rotacji komponentu (0°/90°/180°)
+- `TestCollectUnroutedNets/TestRouteGrid/TestBuildGridFromBoard` — wykrywanie sieci, siatka, przeszkody
+- `TestRouteTwoPoints/TestSimplifyPath/TestPathLength/TestRouteNet` — ścieżkowanie A*, uproszczenie trasy
+- `TestAutorouteBoard` — integracja end-to-end, limit sieci, success rate, szerokość ścieżek
+- Łącznie: 281 testów
+
+## v0.9.0 — 2026-06-16
+
+### Co nowego
+
+#### Opisowe tworzenie obiektów 3D i eksport STL (Ctrl+Shift+3)
+Silnik geometryczny `src/generators/descriptive_stl.py` na bazie `trimesh` + `manifold3d` (CSG):
+- **Parser opisu PL/EN** — `parse_description(text)` rozpoznaje wymiary (`60x40x25`), grubość ścianki,
+  słowa kluczowe (`z wiekiem`/`lid`, `standoffy`/`standoffs`), typ obiektu (obudowa/panel/kątownik/standoff)
+  oraz 15+ wycięć na złącza (USB-C, micro/mini USB, HDMI, RJ45, DC Jack, jack 3.5mm, SD card, OLED, wentylacja…)
+- **Presety płytek** — arduino (uno/nano), esp32, esp8266, raspberry (pi4/zero), rp2040/pico, STM32 Blue Pill, 18650
+- **6 fabryk geometrii**: `make_enclosure` (pudełko z wiekiem, standoffami M3, zaokrąglonymi narożnikami,
+  wycięciami CSG-difference), `make_panel`, `make_bracket`, `make_standoff`, `make_din_clip`, `make_cable_clip`
+- Dialog z 4 zakładkami: opis tekstowy z podglądem parsowania, formularz obudowy z 15 presetami,
+  inne obiekty (panel/kątownik/standoff/klips DIN/klips na kabel), edytor prymitywów CSG (box/cylinder/sphere, add/sub)
+- Generowanie w wątku tła (`QThread`), podgląd 3D w `STL3DView`, eksport STL per-część do wybranego folderu
+
+#### Testy (60 nowych)
+- `TestPrimitive/TestHoleSpec/TestCutoutSpec` — dataclasses geometrii
+- `TestParseDescription` — wymiary, presety, wycięcia, typy obiektów, słowa kluczowe PL/EN
+- `TestMakeWithTrimesh` — mesh generation, CSG enclosure z wycięciami, eksport STL na dysk
+- Łącznie: 235 testów
+
 ## v0.8.0 — 2026-06-15
 
 ### Co nowego
